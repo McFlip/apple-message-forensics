@@ -135,3 +135,50 @@ fn main() {
 
     println!("output directory ready: {}", args.output.display());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn setup_output_dir_creates_missing_directory() {
+        let temp = tempdir().expect("failed to create temporary directory");
+        let output = temp.path().join("output");
+
+        assert!(!output.exists());
+
+        setup_output_dir(&output);
+
+        assert!(output.is_dir());
+        assert!(output.join("evidence").join("vault").is_dir());
+        assert!(output.join("evidence").join("working_copy").is_dir());
+        assert!(output.join("json").is_dir());
+        assert!(output.join("report").is_dir());
+        assert!(output.join("logs").is_dir());
+    }
+
+    #[test]
+    fn setup_output_dir_accepts_existing_empty_directory() {
+        let temp = tempdir().expect("failed to create temporary directory");
+        let output = temp.path().join("output");
+
+        fs::create_dir(&output).expect("failed to create output directory");
+
+        assert!(output.is_dir());
+        assert_eq!(
+            fs::read_dir(&output)
+                .expect("failed to read output directory")
+                .count(),
+            0
+        );
+
+        setup_output_dir(&output);
+
+        assert!(output.join("evidence").join("vault").is_dir());
+        assert!(output.join("evidence").join("working_copy").is_dir());
+        assert!(output.join("json").is_dir());
+        assert!(output.join("report").is_dir());
+        assert!(output.join("logs").is_dir());
+    }
+}
