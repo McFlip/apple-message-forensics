@@ -128,8 +128,6 @@ fn main() {
     }
 
     println!("output directory ready: {}", args.output.display());
-
-    println!("output directory ready: {}", args.output.display());
 }
 
 #[cfg(test)]
