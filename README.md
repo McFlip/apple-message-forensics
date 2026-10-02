@@ -327,17 +327,40 @@ The report is a self-contained local web site consisting of the following
 
 You never know when you might get called to the witness stand, so you should know the data lineage.
 
-### Apple Webkit Syncing
+### Apple Messages Syncing
 
-TODO
+When Messages in iCloud is enabled, the Mac maintains a local copy of the Messages data associated with the Apple Account. This tool does not collect messages directly from Apple's iCloud services. Instead, it collects the local artifacts that macOS creates and maintains after the Messages data has been synchronized to the Mac.
+
+This means the completeness of the collection depends on what has actually synchronized to the Mac at the time of acquisition. The Mac should be allowed to complete its Messages synchronization before collection begins.
+
+The tool requires access to the custodian's macOS user profile and therefore requires **Full Disk Access** for the terminal running the tool. The collection is performed from the local filesystem rather than through an Apple API or cloud service.
 
 ### Chat Database
 
-TODO
+The primary source of message data is the SQLite database:
+
+`~/Library/Messages/chat.db`
+
+The database contains the message, chat, participant handle, and attachment metadata used to reconstruct conversations. The relationships between these records are represented by join tables such as `chat_message_join`, `chat_handle_join`, and `message_attachment_join`. The actual attachment files are also collected from the Messages data directory.
+
+`chat.db` is a live SQLite database and may be accompanied by two SQLite sidecar files:
+
+* `chat.db-wal` — the SQLite write-ahead log containing transactions that have not yet been checkpointed into the main database.
+* `chat.db-shm` — the SQLite shared-memory file used to coordinate access to the WAL.
+
+For forensic collection, these files should be treated as part of the same database artifact. **Do not collect only `chat.db` when `chat.db-wal` or `chat.db-shm` are present.** Recent database activity may exist in the WAL rather than in the main database, and collecting only the main database can therefore result in an incomplete acquisition.
+
+The tool collects the database and its associated files into the evidence package before performing analysis. The original source files are preserved and hashed as part of the collection.
 
 ### Address Book
 
-TODO
+The `handle` records in `chat.db` identify participants primarily by identifiers such as telephone numbers and email addresses. The human-readable name displayed for a participant is not necessarily stored in `chat.db`; macOS may resolve that identifier through the Contacts/AddressBook data maintained on the Mac.
+
+For this reason, the address book is a separate evidence source and should be collected along with the Messages database.
+
+macOS can maintain multiple address-book sources, including local contacts and contacts synchronized from configured accounts. **Collect all available AddressBook/Contacts data for the custodian rather than selecting a single address book or source.** This allows the report to resolve as many message handles as possible to the names known by the custodian's address book.
+
+If a handle cannot be resolved through the collected address-book data, the report will retain the original phone number or email address rather than treating the contact as unknown.
 
 ### SQL Queries
 
