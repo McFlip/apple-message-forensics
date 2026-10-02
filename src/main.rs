@@ -27,6 +27,36 @@ fn default_chat_db() -> PathBuf {
     }
 }
 
+fn check_source(chat_db: PathBuf) -> PathBuf {
+    if !chat_db.exists() {
+        eprintln!("error: source file does not exist: {}", chat_db.display());
+        process::exit(1);
+    }
+
+    if !chat_db.is_file() {
+        eprintln!(
+            "error: source path is not a regular file: {}",
+            chat_db.display()
+        );
+        process::exit(1);
+    }
+
+    if let Err(err) = File::open(&chat_db) {
+        eprintln!(
+            "error: cannot read source file '{}': {}",
+            chat_db.display(),
+            err
+        );
+        eprintln!("hint: grant the required access and try again.");
+        eprintln!(
+            "see: https://github.com/McFlip/apple-message-forensics#prerequisite-access"
+        );
+        process::exit(1);
+    }
+
+    chat_db
+}
+
 fn setup_output_dir(output: &PathBuf) {
     if output.exists() {
         if !output.is_dir() {
@@ -97,31 +127,7 @@ fn main() {
         None => default_chat_db(),
     };
 
-    if !chat_db.exists() {
-        eprintln!("error: source file does not exist: {}", chat_db.display());
-        process::exit(1);
-    }
-
-    if !chat_db.is_file() {
-        eprintln!(
-            "error: source path is not a regular file: {}",
-            chat_db.display()
-        );
-        process::exit(1);
-    }
-
-    if let Err(err) = File::open(&chat_db) {
-        eprintln!(
-            "error: cannot read source file '{}': {}",
-            chat_db.display(),
-            err
-        );
-        eprintln!("hint: grant the required access and try again.");
-        eprintln!(
-            "see: https://github.com/McFlip/apple-message-forensics#prerequisite-access"
-        );
-        process::exit(1);
-    }
+    let chat_db = check_source(chat_db);
 
     println!("source file is accessible: {}", chat_db.display());
 
