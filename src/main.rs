@@ -48,54 +48,44 @@ fn check_source(chat_db: PathBuf) -> PathBuf {
             err
         );
         eprintln!("hint: grant the required access and try again.");
-        eprintln!(
-            "see: https://github.com/McFlip/apple-message-forensics#prerequisite-access"
-        );
+        eprintln!("see: https://github.com/McFlip/apple-message-forensics#prerequisite-access");
         process::exit(1);
     }
 
     chat_db
 }
 
-fn setup_output_dir(output: &PathBuf) {
+fn setup_output_dir(output: &PathBuf) -> Result<(), String> {
     if output.exists() {
         if !output.is_dir() {
-            eprintln!(
-                "error: output path is not a directory: {}",
+            return Err(format!(
+                "output path is not a directory: {}",
                 output.display()
-            );
-            process::exit(1);
+            ));
         }
 
-        match fs::read_dir(output) {
-            Ok(mut entries) => {
-                if entries.next().is_some() {
-                    eprintln!(
-                        "error: output directory is not empty: {}",
-                        output.display()
-                    );
-                    eprintln!(
-                        "hint: specify a new or empty output directory with --output."
-                    );
-                    process::exit(1);
-                }
-            }
-            Err(err) => {
-                eprintln!(
-                    "error: cannot read output directory '{}': {}",
-                    output.display(),
-                    err
-                );
-                process::exit(1);
-            }
+        let mut entries = fs::read_dir(output).map_err(|err| {
+            format!(
+                "cannot read output directory '{}': {}",
+                output.display(),
+                err
+            )
+        })?;
+
+        if entries.next().is_some() {
+            return Err(format!(
+                "output directory is not empty: {}",
+                output.display()
+            ));
         }
-    } else if let Err(err) = fs::create_dir_all(output) {
-        eprintln!(
-            "error: cannot create output directory '{}': {}",
-            output.display(),
-            err
-        );
-        process::exit(1);
+    } else {
+        fs::create_dir_all(output).map_err(|err| {
+            format!(
+                "cannot create output directory '{}': {}",
+                output.display(),
+                err
+            )
+        })?;
     }
 
     let directories = [
@@ -106,17 +96,17 @@ fn setup_output_dir(output: &PathBuf) {
         output.join("logs"),
     ];
 
-    if let Err(err) = directories
-        .iter()
-        .try_for_each(fs::create_dir_all)
-    {
-        eprintln!(
-            "error: cannot create output directory structure under '{}': {}",
-            output.display(),
-            err
-        );
-        process::exit(1);
+    for directory in directories {
+        fs::create_dir_all(&directory).map_err(|err| {
+            format!(
+                "cannot create output directory '{}': {}",
+                directory.display(),
+                err
+            )
+        })?;
     }
+
+    Ok(())
 }
 
 fn main() {
@@ -131,7 +121,13 @@ fn main() {
 
     println!("source file is accessible: {}", chat_db.display());
 
-    setup_output_dir(&args.output);
+    if let Err(err) = setup_output_dir(&args.output) {
+        eprintln!("error: {err}");
+        eprintln!("hint: specify a new or empty output directory with --output.");
+        process::exit(1);
+    }
+
+    println!("output directory ready: {}", args.output.display());
 
     println!("output directory ready: {}", args.output.display());
 }
@@ -148,7 +144,7 @@ mod tests {
 
         assert!(!output.exists());
 
-        setup_output_dir(&output);
+        setup_output_dir(&output).unwrap();
 
         assert!(output.is_dir());
         assert!(output.join("evidence").join("vault").is_dir());
@@ -173,12 +169,44 @@ mod tests {
             0
         );
 
-        setup_output_dir(&output);
+        setup_output_dir(&output).unwrap();
 
         assert!(output.join("evidence").join("vault").is_dir());
         assert!(output.join("evidence").join("working_copy").is_dir());
         assert!(output.join("json").is_dir());
         assert!(output.join("report").is_dir());
         assert!(output.join("logs").is_dir());
+    }
+    #[test]
+    fn setup_output_dir_rejects_non_empty_directory() {
+        let temp = tempdir().expect("failed to create temporary directory");
+        let output = temp.path().join("output");
+
+        fs::create_dir(&output).expect("failed to create output directory");
+        fs::write(output.join("existing.txt"), "test").expect("failed to create existing file");
+
+        let result = setup_output_dir(&output);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            format!("output directory is not empty: {}", output.display())
+        );
+    }
+
+    #[test]
+    fn setup_output_dir_rejects_file_as_output_path() {
+        let temp = tempdir().expect("failed to create temporary directory");
+        let output = temp.path().join("output");
+
+        fs::write(&output, "test").expect("failed to create test file");
+
+        let result = setup_output_dir(&output);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            format!("output path is not a directory: {}", output.display())
+        );
     }
 }
