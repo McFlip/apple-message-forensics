@@ -1,5 +1,6 @@
+use apple_message_forensics::check_source;
 use clap::Parser;
-use std::fs::{self, File};
+use std::fs::{self};
 use std::path::PathBuf;
 use std::process;
 
@@ -25,34 +26,6 @@ fn default_chat_db() -> PathBuf {
             process::exit(1);
         }
     }
-}
-
-fn check_source(chat_db: PathBuf) -> PathBuf {
-    if !chat_db.exists() {
-        eprintln!("error: source file does not exist: {}", chat_db.display());
-        process::exit(1);
-    }
-
-    if !chat_db.is_file() {
-        eprintln!(
-            "error: source path is not a regular file: {}",
-            chat_db.display()
-        );
-        process::exit(1);
-    }
-
-    if let Err(err) = File::open(&chat_db) {
-        eprintln!(
-            "error: cannot read source file '{}': {}",
-            chat_db.display(),
-            err
-        );
-        eprintln!("hint: grant the required access and try again.");
-        eprintln!("see: https://github.com/McFlip/apple-message-forensics#prerequisite-access");
-        process::exit(1);
-    }
-
-    chat_db
 }
 
 fn setup_output_dir(output: &PathBuf) -> Result<(), String> {
@@ -117,7 +90,14 @@ fn main() {
         None => default_chat_db(),
     };
 
-    let chat_db = check_source(chat_db);
+    let chat_db = match check_source(chat_db) {
+        Ok(path) => path,
+        Err(err) => {
+            eprintln!("error: {err}");
+            eprintln!("hint: verify that the source is a valid iMessage chat database.");
+            process::exit(1);
+        }
+    };
 
     println!("source file is accessible: {}", chat_db.display());
 
