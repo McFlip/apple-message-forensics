@@ -16,11 +16,11 @@ This project was inspired by the Python project [imessagedb](https://pypi.org/pr
 
 ### Purpose
 
-The original purpose of this tool is for collecting iPhone messages for eDiscovery in litigations.
+The original purpose of this tool is for collecting Apple Messages data made available on macOS through Messages/iCloud synchronization for eDiscovery.
 
 ### Requirements
 
-You need a macBook that is not controlled by your enterprise IT and log in with the target Apple iCloud credentials.
+You need a MacBook that is not controlled by your enterprise IT and log in with the target Apple Apple Account credentials.
 
 Logging in with the Apple account on the MacBook will trigger 2-factor authentication on the target phone.
 
@@ -41,7 +41,7 @@ Here are the advantages of using iCloud sync over traditional cellphone forensic
 
 ### Disadvantage of traditional forensic tools
 
-* Built are for criminal cases and overkill for simply collecting messages for litigation
+* Built for criminal cases and overkill for simply collecting messages for litigation
 * You need physical access to the phone
 * Your MDM solution must not block device pairing
 * Cost in terms of time, money, and proprietary support, training, and specialized equipment
@@ -59,35 +59,35 @@ Here are the advantages of using iCloud sync over traditional cellphone forensic
 * Cheap - no specialized tooling and licenses
 * Fast - done in minutes instead of hours/days
 * Easy - no training from proprietary vendor, you just need to know how to work the command line
-* Scales accross a large enterprise with a small forensic team
+* Scales across a large enterprise with a small forensic team
 
 ### Limitations
 
 All of these are both pros and cons, but you should be aware of them.
 
 * Very narrow scope
-* Open source - this is a simple tool you can inspect and testify to it's inner workings, but there is no Service Level Agreement
+* Open source - this is a simple tool you can inspect and testify to its inner workings, but there is no Service Level Agreement
 * 2-Factor auth - If a custodian suddenly passes away or refuses to co-operate with their custodial duties, you won't be able to log in to the iCloud
   * Some MDM solutions allow you to reset the password to the phone, but that is separate from the iCloud login
 
 ## Prerequisite Access
 
-You need to grant full access to the disk for the terminal.
+You need to grant **Full Disk Access** to the application from which you run the tool.
 On macOS, even when using `sudo` commands, you are by default blocked from accessing the library folders.
 
-You must explicitely grant access to the terminal.
+You must explicitly grant access to the application running the tool.
 
-1. Go to settings -> privacy settings -> select **Full Disk Access** ![privacy settings](screenshot1.png)
+1. Go to **System Settings → Privacy & Security → Full Disk Access** ![privacy settings](screenshot1.png)
 2. Enable access for terminal ![enable terminal](screenshot2.png)
 
 ## Install
 
-Go to the [releases page](https://github.com/McFlip/apple-message-forensics/releases) and download the correct binary depending on if you are running Mac or Intel silicon.
+Go to the [releases page](https://github.com/McFlip/apple-message-forensics/releases) and download the correct binary depending on if you are running Apple silicon or Intel.
 
 If you don't know what you are running under the hood use the following command
 
 ```bash
-sysctl -n machdep.cpu.brand_string | grep -qi 'Apple' && echo "Apple chip" || echo "Intel CPU"
+sysctl -n machdep.cpu.brand_string | grep -qi 'Apple' && echo "Apple silicon" || echo "Intel CPU"
 ```
 
 On macOS, once you have the binary:
@@ -250,7 +250,7 @@ If you only specify
 
 1. start only - This means from this day forward
 2. end only   - This means up to this day
-3. both       - This means inbetween
+3. both       - This means in between
 
 All dates are inclusive.
 
@@ -279,12 +279,12 @@ apple-message-forensics report --filter-contacts "1,2,3"
 You can combine date range and contact filters
 
 ```bash
-apple-message-forensics --start "2026-01-01" --end "2026-01-31" --filter-contacts "1,2,3
+apple-message-forensics --start "2026-01-01" --end "2026-01-31" --filter-contacts "1,2,3"
 ```
 
 ### Deliver
 
-This creates a zip folder with everything included (except previous deliveries) and optionally password protects the zip.
+This creates a ZIP archive with everything included (except previous deliveries) and optionally password-protects the ZIP.
 A text file with matching name will have the hashes of the deliverable.
 
 Passwords will be entered in a prompt and no characters will be echoed to the screen.
@@ -296,12 +296,12 @@ You can also specify a different destination if you don't want to use the defaul
 apple-message-forensics deliver --password --destination "path/to/destination"
 ```
 
-If you need more advanced packaging capabilites, such as chunking to a max size or you only want to deliver the report,
+If you need more advanced packaging capabilities, such as chunking to a maximum size or delivering only the report,
 I highly recommend the 3rd party tool `7zip`. You can find it [here](https://www.7-zip.org).
 
 ## Report Format
 
-The report is a self-contained local web site consisting of the following
+The report is a self-contained local website consisting of the following
 
 * Header
   * timestamp in UTC and local time
@@ -310,7 +310,7 @@ The report is a self-contained local web site consisting of the following
   * metadata table rendered from file passed in on the command line
   * basic stats
     * total messages
-    * earlist message
+    * earliest message
     * latest message
     * top talkers
 * List of list pages
@@ -333,7 +333,9 @@ When Messages in iCloud is enabled, the Mac maintains a local copy of the Messag
 
 This means the completeness of the collection depends on what has actually synchronized to the Mac at the time of acquisition. The Mac should be allowed to complete its Messages synchronization before collection begins.
 
-The tool requires access to the custodian's macOS user profile and therefore requires **Full Disk Access** for the terminal running the tool. The collection is performed from the local filesystem rather than through an Apple API or cloud service.
+> [!Warning] This tool does not create a forensic image of the iPhone. It collects and preserves Apple Messages artifacts that are available on the Mac at the time of acquisition.
+
+The tool requires access to the custodian's macOS user profile and therefore requires **Full Disk Access** for the application running the tool. The collection is performed from the local filesystem rather than through an Apple API or cloud service.
 
 ### Chat Database
 
@@ -358,15 +360,43 @@ The `handle` records in `chat.db` identify participants primarily by identifiers
 
 For this reason, the address book is a separate evidence source and should be collected along with the Messages database.
 
-macOS can maintain multiple address-book sources, including local contacts and contacts synchronized from configured accounts. **Collect all available AddressBook/Contacts data for the custodian rather than selecting a single address book or source.** This allows the report to resolve as many message handles as possible to the names known by the custodian's address book.
+macOS can maintain multiple address-book sources, including local contacts and contacts synchronized from configured accounts. **Collect all available AddressBook/Contacts data for the custodian rather than selecting a single address book or source.** This allows the report to resolve as many message handles as possible to the names available in the collected address-book data.
 
 If a handle cannot be resolved through the collected address-book data, the report will retain the original phone number or email address rather than treating the contact as unknown.
+
+### Evidence Model
+
+The collection workflow preserves the source artifacts used for acquisition and analysis and then produces derived outputs for analysis and reporting.
+
+```text
+Source artifacts
+  ├── Messages database
+  │     ├── chat.db
+  │     ├── chat.db-wal
+  │     └── chat.db-shm
+  │
+  ├── Messages attachments
+  │
+  └── AddressBook / Contacts
+
+        ↓
+
+Evidence package
+        ↓
+    JSON extraction
+        ↓
+    HTML report
+        ↓
+     Delivery ZIP
+```
+
+The evidence package is the preserved source material. JSON files and HTML reports are derived outputs that can be used for further analysis and review.
 
 ### SQL Queries
 
 Check the reference section of this repository to see the Schema of the source databases that were referenced while building this tool.
 
-All SQL queries used by the tool are also provided so that you can independantly verify them with your favorite SQLite tools.
+All SQL queries used by the tool are also provided so that you can independently verify them with your favorite SQLite tools.
 
 I used `sqlite-utils` for inspecting test data on my development system, which is an Apple M5 MacBook Air on macOS Golden Gate `v27.0`.
 
@@ -465,4 +495,4 @@ Let me know what OS version you are running and version of this tool.
 
 If you can reproduce the issue with test data please provide that.
 
->[!Warning] Do not send me sensitive case data or anything classified. This is not a Warthunder forum!
+>[!Warning] Do not send me sensitive case data or anything classified. This is not a War Thunder forum!
