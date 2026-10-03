@@ -7,20 +7,19 @@ use std::process;
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    /// Path to the iMessage chat database
-    chat_db: Option<PathBuf>,
+    /// Path to the folder containing the iMessage chat database
+    chat_db_src_dir: Option<PathBuf>,
 
     /// Path to the output directory
     #[arg(short, long, default_value = "output")]
     output: PathBuf,
 }
 
-fn default_chat_db() -> PathBuf {
+fn default_chat_db_src_dir() -> PathBuf {
     match std::env::var_os("HOME") {
         Some(home) => PathBuf::from(home)
             .join("Library")
-            .join("Messages")
-            .join("chat.db"),
+            .join("Messages"),
         None => {
             eprintln!("error: HOME environment variable is not set");
             process::exit(1);
@@ -28,13 +27,19 @@ fn default_chat_db() -> PathBuf {
     }
 }
 
+fn chat_db_path_from_src_dir(src_dir: &PathBuf) -> PathBuf {
+    src_dir.join("chat.db")
+}
+
 fn main() {
     let args = Args::parse();
 
-    let chat_db = match args.chat_db {
+    let chat_db_src_dir = match args.chat_db_src_dir {
         Some(path) => path,
-        None => default_chat_db(),
+        None => default_chat_db_src_dir(),
     };
+
+    let chat_db = chat_db_path_from_src_dir(&chat_db_src_dir);
 
     let chat_db = match check_source(chat_db) {
         Ok(path) => path,
