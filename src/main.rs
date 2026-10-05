@@ -80,7 +80,6 @@ fn main() {
     .expect("evidence files to be copied");
     println!("done.");
 
-    // TODO: set all copied files to read-only
     // TODO: zip working directory to vault
     // TODO: parse chat.db and AddressBook-v22.abcddb to extract messages and contacts to JSON
     // TODO: Create HTML report from JSON data and attachments

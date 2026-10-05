@@ -1,6 +1,6 @@
+use apple_message_forensics::copy_and_verify_manifest_files;
 use std::{fs, os::unix::fs::PermissionsExt};
 use tempfile::tempdir;
-use apple_message_forensics::copy_and_verify_manifest_files;
 
 #[test]
 fn copies_and_verifies_files_from_hash_manifest() {
@@ -12,13 +12,15 @@ fn copies_and_verifies_files_from_hash_manifest() {
     let output_temp_dir = tempdir().expect("create temporary output directory");
 
     let source_path = home_temp_dir.path().join(RELATIVE_PATH);
-    fs::create_dir_all(source_path.parent().expect("source has parent")).expect("create source directory");
+    fs::create_dir_all(source_path.parent().expect("source has parent"))
+        .expect("create source directory");
     fs::write(&source_path, CONTENTS).expect("write source file");
 
     let manifest_path = output_temp_dir.path().join("hashes.txt");
     fs::write(&manifest_path, format!("{SHA256}  {RELATIVE_PATH}\n")).expect("write hash manifest");
 
-    copy_and_verify_manifest_files(&manifest_path, home_temp_dir.path(), output_temp_dir.path()).expect("copy and verify manifest files");
+    copy_and_verify_manifest_files(&manifest_path, home_temp_dir.path(), output_temp_dir.path())
+        .expect("copy and verify manifest files");
 
     let copied_path = output_temp_dir.path().join(RELATIVE_PATH);
     assert_eq!(
@@ -28,6 +30,13 @@ fn copies_and_verifies_files_from_hash_manifest() {
     );
 
     // Check if the copied file is read-only
-    let perms = fs::metadata(&copied_path).expect("Failed to read metadata").permissions().mode();
-    assert!((perms & 0o222) == 0, "Copied file must be read-only across all categories\nPermissions: {:o}", perms);
+    let perms = fs::metadata(&copied_path)
+        .expect("Failed to read metadata")
+        .permissions()
+        .mode();
+    assert!(
+        (perms & 0o222) == 0,
+        "Copied file must be read-only across all categories\nPermissions: {:o}",
+        perms
+    );
 }

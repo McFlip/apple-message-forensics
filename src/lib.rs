@@ -1,6 +1,7 @@
 use hex;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
+use std::os::unix::fs::PermissionsExt;
 use std::{
     fs,
     io::{Read, Write},
@@ -8,7 +9,6 @@ use std::{
     thread,
     time::Duration,
 };
-use std::os::unix::fs::PermissionsExt;
 
 const MAX_COPY_ATTEMPTS: usize = 3;
 const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -268,6 +268,13 @@ pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathB
             )
         })?;
     }
+    set_read_only(&out_file_path).map_err(|err| {
+        format!(
+            "cannot set read-only permissions on manifest file {}: {}",
+            out_file_path.display(),
+            err
+        )
+    })?;
 
     Ok(out_file_path)
 }
