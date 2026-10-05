@@ -80,7 +80,12 @@ fn main() {
     .expect("evidence files to be copied");
     println!("done.");
 
-    // TODO: zip working directory to vault
+    // zip working directory to vault
+    let vault_path = &args.output.join("evidence").join("vault").join("vault.zip");
+    let vault_src = &args.output.join("evidence").join("working_copy");
+    apple_message_forensics::archive_evidence(vault_src, vault_path).expect("evidence archive to be created");
+    println!("evidence archive created at {}", vault_path.as_path().display());
+    
     // TODO: parse chat.db and AddressBook-v22.abcddb to extract messages and contacts to JSON
     // TODO: Create HTML report from JSON data and attachments
     // TODO: Create deliverable package with report, JSON, evidence, and manifest
