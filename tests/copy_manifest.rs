@@ -29,5 +29,5 @@ fn copies_and_verifies_files_from_hash_manifest() {
 
     // Check if the copied file is read-only
     let perms = fs::metadata(&copied_path).expect("Failed to read metadata").permissions().mode();
-    assert!((perms & 0o200 | 0o020 | 0o002) == 0, "Copied file must be read-only across all categories\nPermissions: {:o}", perms);
+    assert!((perms & 0o222) == 0, "Copied file must be read-only across all categories\nPermissions: {:o}", perms);
 }

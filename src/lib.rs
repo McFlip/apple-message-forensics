@@ -8,6 +8,7 @@ use std::{
     thread,
     time::Duration,
 };
+use std::os::unix::fs::PermissionsExt;
 
 const MAX_COPY_ATTEMPTS: usize = 3;
 const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -336,6 +337,13 @@ pub fn copy_and_verify_manifest_files(
             let actual_hash = calculate_sha256(&destination_path)?;
 
             if actual_hash.eq_ignore_ascii_case(&expected_hash) {
+                set_read_only(&destination_path).map_err(|err| {
+                    format!(
+                        "cannot set read-only permissions on copied evidence file {}: {}",
+                        destination_path.display(),
+                        err
+                    )
+                })?;
                 break;
             }
 
@@ -422,4 +430,13 @@ fn parse_hash_manifest_line(
     }
 
     Ok((expected_hash.to_ascii_lowercase(), relative_path))
+}
+
+fn set_read_only(path: &Path) -> Result<(), std::io::Error> {
+    let mut permissions = fs::metadata(path)?.permissions();
+
+    // Remove all write bits, preserving read/execute bits.
+    permissions.set_mode(permissions.mode() & !0o131313);
+
+    fs::set_permissions(path, permissions)
 }
