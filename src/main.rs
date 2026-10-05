@@ -7,19 +7,17 @@ use std::process;
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    /// Path to the folder containing the iMessage chat database
-    chat_db_src_dir: Option<PathBuf>,
+    /// Path to the folder containing the iMessage chat database and Address Books
+    home_dir: Option<PathBuf>,
 
     /// Path to the output directory
     #[arg(short, long, default_value = "output")]
     output: PathBuf,
 }
 
-fn default_chat_db_src_dir() -> PathBuf {
+fn default_home_dir() -> PathBuf {
     match std::env::var_os("HOME") {
-        Some(home) => PathBuf::from(home)
-            .join("Library")
-            .join("Messages"),
+        Some(home) => PathBuf::from(home),
         None => {
             eprintln!("error: HOME environment variable is not set");
             process::exit(1);
@@ -34,10 +32,12 @@ fn chat_db_path_from_src_dir(src_dir: &PathBuf) -> PathBuf {
 fn main() {
     let args = Args::parse();
 
-    let chat_db_src_dir = match args.chat_db_src_dir {
+    let home_dir = match args.home_dir {
         Some(path) => path,
-        None => default_chat_db_src_dir(),
+        None => default_home_dir(),
     };
+
+    let chat_db_src_dir = home_dir.join("Library").join("Messages");
 
     let chat_db = chat_db_path_from_src_dir(&chat_db_src_dir);
 
@@ -59,4 +59,11 @@ fn main() {
     }
 
     println!("output directory ready: {}", args.output.display());
+
+    let file_hash_manifest =
+        apple_message_forensics::write_evidence_hashes(home_dir.as_path(), args.output.as_path())
+            .expect("file hash manifest to be created");
+    // Read and print the contents of the manifest file
+    let contents = std::fs::read_to_string(&file_hash_manifest).expect("to read manifest");
+    print!("\nfound the following evidence files:\n{}", contents);
 }

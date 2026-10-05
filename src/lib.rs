@@ -1,9 +1,9 @@
-use rusqlite::Connection;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::io::{Write, Read};
-use sha2::{Sha256, Digest};
 use hex;
+use rusqlite::Connection;
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 
 const REQUIRED_TABLES: [&str; 3] = ["message", "chat", "attachment"];
 
@@ -121,7 +121,8 @@ pub fn check_source(chat_db: PathBuf) -> Result<PathBuf, String> {
 
 /// Calculates the SHA-256 hash for a given file.
 fn calculate_sha256(path: &Path) -> Result<String, String> {
-    let mut file = fs::File::open(path).map_err(|e| format!("cannot open file '{}': {}", path.display(), e))?;
+    let mut file = fs::File::open(path)
+        .map_err(|e| format!("cannot open file '{}': {}", path.display(), e))?;
     let mut hasher = Sha256::new();
     let mut buffer = [0; 4096];
 
@@ -195,13 +196,19 @@ fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
 /// # Returns
 /// * Path to the hash manifest file if successful, or an error message if unsuccessful.
 pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathBuf, String> {
-    let out_file_path = output_dir.join("evidence").join("vault").join("hash_manifest.txt");
+    let out_file_path = output_dir
+        .join("evidence")
+        .join("vault")
+        .join("hash_manifest.txt");
     let mut manifest_entries: Vec<(String, String)> = Vec::new();
 
     // recursively scan the home_dir and get relative paths
     let evidence_files = find_evidence_files(home_dir)?;
 
-    println!("Writing evidence hashes to output directory: {}", out_file_path.display());
+    println!(
+        "Writing evidence hashes to output directory: {}",
+        out_file_path.display()
+    );
     println!("Home directory: {}", home_dir.display());
 
     for relative_path in evidence_files.iter() {

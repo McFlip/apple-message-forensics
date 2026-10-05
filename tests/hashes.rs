@@ -1,9 +1,6 @@
-use std::{
-    fs,
-    path::{Path},
-};
+use std::{fs, path::Path};
 
-use apple_message_forensics::{write_evidence_hashes, setup_output_dir};
+use apple_message_forensics::{setup_output_dir, write_evidence_hashes};
 use tempfile::tempdir;
 
 struct ExpectedHash {
@@ -55,8 +52,7 @@ fn writes_sha256_hashes_for_collected_messages_and_address_book_evidence() {
             sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
         },
         ExpectedHash {
-            relative_path:
-                "Library/Application Support/AddressBook/Sources/test-address-book-source/AddressBook-v22.abcddb",
+            relative_path: "Library/Application Support/AddressBook/Sources/test-address-book-source/AddressBook-v22.abcddb",
             sha256: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
         },
     ];
@@ -65,7 +61,7 @@ fn writes_sha256_hashes_for_collected_messages_and_address_book_evidence() {
         .expect("write SHA-256 manifest for collected evidence");
 
     // let hashes_path = output_dir.join("evidence").join("vault").join("hashes.txt");
-    assert!(    
+    assert!(
         hashes_path.is_file(),
         "expected hash manifest at {}",
         hashes_path.display()
