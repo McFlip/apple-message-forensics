@@ -569,3 +569,15 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
 
     Ok(())
 }
+
+/// Gets all handles from chat.db
+/// # Arguments
+/// * `chat_db` - The path to the iMessage chat database file.
+/// # Returns
+/// * `Ok(String)` - Handles in JSON format if successful.
+/// * `Err(String)` - An error message if the operation fails.
+pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
+    // Placeholder implementation for testing purposes.
+    let dummy_result = "test".to_string();
+    Ok(dummy_result)
+}
