@@ -1,10 +1,16 @@
 use hex;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
-use std::fs;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    io::{Read, Write},
+    path::{Component, Path, PathBuf},
+    thread,
+    time::Duration,
+};
 
+const MAX_COPY_ATTEMPTS: usize = 3;
+const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
 const REQUIRED_TABLES: [&str; 3] = ["message", "chat", "attachment"];
 
 // setup_output_dir creates the required output structure defined in main.rs
@@ -213,7 +219,7 @@ fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
 pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathBuf, String> {
     let out_file_path = output_dir
         .join("evidence")
-        .join("vault")
+        .join("working_copy")
         .join("hash_manifest.txt");
     let mut manifest_entries: Vec<(String, String)> = Vec::new();
 
@@ -263,4 +269,157 @@ pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathB
     }
 
     Ok(out_file_path)
+}
+
+/// Copies every file listed in a SHA-256 manifest to `output_dir`.
+///
+/// Manifest entries must use the format:
+///
+/// ```text
+/// <sha256>  <relative path>
+/// ```
+///
+/// Source files are resolved relative to the manifest's parent directory.
+/// Destination paths are created beneath `output_dir`.
+///
+/// A copied file is hashed after each copy. A mismatch is retried after one
+/// minute, for a maximum of three total attempts per file.
+pub fn copy_and_verify_manifest_files(
+    manifest_path: &Path,
+    home_dir: &Path,
+    output_dir: &Path,
+) -> Result<(), String> {
+    let manifest_contents = fs::read_to_string(manifest_path).map_err(|err| {
+        format!(
+            "cannot read hash manifest '{}': {}",
+            manifest_path.display(),
+            err
+        )
+    })?;
+
+    for (line_number, line) in manifest_contents.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let (expected_hash, relative_path) =
+            parse_hash_manifest_line(line, line_number + 1, manifest_path)?;
+
+        let source_path = home_dir.join(&relative_path);
+        let destination_path = output_dir.join(&relative_path);
+
+        let destination_parent = destination_path.parent().ok_or_else(|| {
+            format!(
+                "cannot determine destination directory for '{}'",
+                destination_path.display()
+            )
+        })?;
+
+        fs::create_dir_all(destination_parent).map_err(|err| {
+            format!(
+                "cannot create evidence directory '{}': {}",
+                destination_parent.display(),
+                err
+            )
+        })?;
+
+        for attempt in 1..=MAX_COPY_ATTEMPTS {
+            fs::copy(&source_path, &destination_path).map_err(|err| {
+                format!(
+                    "cannot copy evidence file '{}' to '{}': {}",
+                    source_path.display(),
+                    destination_path.display(),
+                    err
+                )
+            })?;
+
+            let actual_hash = calculate_sha256(&destination_path)?;
+
+            if actual_hash.eq_ignore_ascii_case(&expected_hash) {
+                break;
+            }
+
+            if attempt == MAX_COPY_ATTEMPTS {
+                return Err(format!(
+                    "SHA-256 mismatch after {} attempts for '{}': expected {}, got {}",
+                    MAX_COPY_ATTEMPTS,
+                    relative_path.display(),
+                    expected_hash,
+                    actual_hash
+                ));
+            }
+
+            thread::sleep(HASH_RETRY_DELAY);
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_hash_manifest_line(
+    line: &str,
+    line_number: usize,
+    manifest_path: &Path,
+) -> Result<(String, PathBuf), String> {
+    if line.len() < 67 {
+        return Err(format!(
+            "invalid manifest entry on line {} in '{}': expected '<sha256>  <relative path>'",
+            line_number,
+            manifest_path.display()
+        ));
+    }
+
+    let (expected_hash, remainder) = line.split_at(64);
+
+    if !expected_hash
+        .chars()
+        .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err(format!(
+            "invalid SHA-256 value on line {} in '{}'",
+            line_number,
+            manifest_path.display()
+        ));
+    }
+
+    // Accept standard sha256sum text-mode and binary-mode separators:
+    // "<hash>  <path>" or "<hash> *<path>".
+    let path_text = remainder
+        .strip_prefix("  ")
+        .or_else(|| remainder.strip_prefix(" *"))
+        .ok_or_else(|| {
+            format!(
+                "invalid manifest separator on line {} in '{}'",
+                line_number,
+                manifest_path.display()
+            )
+        })?;
+
+    if path_text.is_empty() {
+        return Err(format!(
+            "missing file path on line {} in '{}'",
+            line_number,
+            manifest_path.display()
+        ));
+    }
+
+    let relative_path = PathBuf::from(path_text);
+
+    if relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+    {
+        return Err(format!(
+            "manifest path '{}' on line {} in '{}' must be relative and must not contain '..'",
+            relative_path.display(),
+            line_number,
+            manifest_path.display()
+        ));
+    }
+
+    Ok((expected_hash.to_ascii_lowercase(), relative_path))
 }

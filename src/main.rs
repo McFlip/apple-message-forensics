@@ -66,4 +66,23 @@ fn main() {
     // Read and print the contents of the manifest file
     let contents = std::fs::read_to_string(&file_hash_manifest).expect("to read manifest");
     print!("\nfound the following evidence files:\n{}", contents);
+
+    print!("Copying evidence files to output directory...");
+    apple_message_forensics::copy_and_verify_manifest_files(
+        file_hash_manifest.as_path(),
+        home_dir.as_path(),
+        args.output
+            .as_path()
+            .join("evidence")
+            .join("working_copy")
+            .as_path(),
+    )
+    .expect("evidence files to be copied");
+    println!("done.");
+
+    // TODO: set all copied files to read-only
+    // TODO: zip working directory to vault
+    // TODO: parse chat.db and AddressBook-v22.abcddb to extract messages and contacts to JSON
+    // TODO: Create HTML report from JSON data and attachments
+    // TODO: Create deliverable package with report, JSON, evidence, and manifest
 }
