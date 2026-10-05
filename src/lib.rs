@@ -137,7 +137,8 @@ fn calculate_sha256(path: &Path) -> Result<String, String> {
     Ok(hex::encode(hash))
 }
 
-/// Recursively finds regular files beneath `home_dir` and returns their relative paths.
+/// Recursively finds regular files beneath the Messages and AddressBook
+/// evidence directories and returns paths relative to `home_dir`.
 fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
     fn visit_directory(
         directory: &Path,
@@ -160,6 +161,7 @@ fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
                     err
                 )
             })?;
+
             let path = entry.path();
             let file_type = entry.file_type().map_err(|err| {
                 format!("cannot inspect evidence path '{}': {}", path.display(), err)
@@ -176,6 +178,7 @@ fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
                         err
                     )
                 })?;
+
                 evidence_files.push(relative_path.to_path_buf());
             }
         }
@@ -183,8 +186,20 @@ fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
         Ok(())
     }
 
+    let evidence_roots = [
+        home_dir.join("Library").join("Messages"),
+        home_dir
+            .join("Library")
+            .join("Application Support")
+            .join("AddressBook"),
+    ];
+
     let mut evidence_files = Vec::new();
-    visit_directory(home_dir, home_dir, &mut evidence_files)?;
+
+    for evidence_root in evidence_roots {
+        visit_directory(&evidence_root, home_dir, &mut evidence_files)?;
+    }
+
     evidence_files.sort();
     Ok(evidence_files)
 }
