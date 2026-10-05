@@ -448,8 +448,8 @@ fn set_read_only(path: &Path) -> Result<(), std::io::Error> {
     fs::set_permissions(path, permissions)
 }
 
-/// Archives evidence from a source directory to a zip file at the given destination path.
-/// The function creates an evidence archive manifest containing all files and directories within `source_dir`.
+/// Archives all regular files from a source directory to a deflated ZIP file.
+/// Files retain their paths relative to `source_dir`.
 /// # Arguments
 /// * `source_dir` - The directory containing evidence files to be archived.
 /// * `archive_path` - The path where the evidence archive will be written.
@@ -457,13 +457,10 @@ fn set_read_only(path: &Path) -> Result<(), std::io::Error> {
 /// * `Ok(())` if the archive was created successfully.
 /// * `Err(String)` - An error message if archiving fails.
 pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), String> {
-    // Create parent directories if they don't exist
-    let archive_parent = archive_path.parent().ok_or_else(|| {
-        format!(
-            "cannot determine parent directory for archive path '{}'",
-            archive_path.display()
-        )
-    })?;
+    let archive_parent = archive_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
 
     fs::create_dir_all(archive_parent).map_err(|err| {
         format!(
@@ -473,83 +470,102 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
         )
     })?;
 
-    // Collect all files from source_dir with their relative paths using Result pattern matching
-    let mut entries: Vec<(String, PathBuf)> = Vec::new();
+    fn collect_files(
+        directory: &Path,
+        base_dir: &Path,
+        entries: &mut Vec<(PathBuf, PathBuf)>,
+    ) -> Result<(), String> {
+        let directory_entries = fs::read_dir(directory).map_err(|err| {
+            format!(
+                "cannot read source directory '{}': {}",
+                directory.display(),
+                err
+            )
+        })?;
 
-    fn collect_files(source_dir: &Path, base_dir: &Path, entries: &mut Vec<(String, PathBuf)>) -> Result<(), String> {
-        // Read the directory contents and iterate over each entry using match pattern
-        let dir_result = fs::read_dir(source_dir);
-        
-        match dir_result {
-            Ok(dir_entries) => {
-                // Process each entry manually with Result handling
-                for result in dir_entries {
-                    match result {
-                        Ok(entry_result) => {
-                            let entry_path = entry_result.path();
-                            
-                            // Get metadata using Result handling
-                            let metadata_result = std::fs::symlink_metadata(&entry_path);
-                            
-                            match metadata_result {
-                                Ok(metadata) => {
-                                    if metadata.is_dir() {
-                                        // Recursively collect files from subdirectory.
-                                        collect_files(&entry_path, base_dir, entries)?;
-                                    } else if metadata.is_file() || metadata.is_symlink() {
-                                        // Add file entry.
-                                        let rel_path = entry_path.strip_prefix(base_dir).unwrap_or(&entry_path);
-                                        let rel_str = rel_path.to_string_lossy().to_string();
-                                        entries.push((rel_str, entry_path));
-                                    }
-                                },
-                                Err(_) => {
-                                    return Err(format!("error reading file metadata for '{}'", entry_path.display()))
-                                }
-                            }
-                        },
-                        Err(_) => {
-                            return Err(format!(
-                                "failed to read directory '{}'",
-                                source_dir.display()
-                            ))
-                        }
-                    }
-                }
-            },
-            Err(e) => {
-                return Err(format!("error reading directory '{}': {}", source_dir.display(), e))
+        for entry in directory_entries {
+            let entry = entry.map_err(|err| {
+                format!(
+                    "cannot read an entry in source directory '{}': {}",
+                    directory.display(),
+                    err
+                )
+            })?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|err| {
+                format!("cannot inspect source path '{}': {}", path.display(), err)
+            })?;
+
+            if file_type.is_dir() {
+                collect_files(&path, base_dir, entries)?;
+            } else if file_type.is_file() {
+                let relative_path = path.strip_prefix(base_dir).map_err(|err| {
+                    format!(
+                        "source file '{}' is not beneath source directory '{}': {}",
+                        path.display(),
+                        base_dir.display(),
+                        err
+                    )
+                })?;
+                entries.push((relative_path.to_path_buf(), path));
             }
         }
 
         Ok(())
     }
 
+    let mut entries = Vec::new();
     collect_files(source_dir, source_dir, &mut entries)?;
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Create an archive manifest file that lists all evidence with proper structure
-    let mut content = String::new();
-    content.push_str("// Evidence Archive Manifest\n");
-    content.push_str("// Generated by apple-message-forensics\n");
-    content.push_str(&format!("SOURCE: {}\n\n", source_dir.display()));
-    
-    for (rel_path, _) in &entries {
-        let file_info = entries
-            .iter()
-            .find(|(r, _)| r == rel_path)
-            .map(|(_, p)| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "<unknown>".to_string());
-        content.push_str(&format!("{} - Source file: {}\n\n", rel_path, file_info));
-    }
+    let archive_file = fs::File::create(archive_path).map_err(|err| {
+        format!(
+            "cannot create archive file '{}': {}",
+            archive_path.display(),
+            err
+        )
+    })?;
+    let mut archive = zip::ZipWriter::new(archive_file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
-    fs::write(archive_path, content.as_bytes())
-        .map_err(|err| {
+    for (relative_path, source_path) in entries {
+        let archive_name = relative_path.to_string_lossy().replace('\\', "/");
+        archive.start_file(&archive_name, options).map_err(|err| {
             format!(
-                "cannot write archive file '{}': {}",
+                "cannot add '{}' to archive '{}': {}",
+                source_path.display(),
                 archive_path.display(),
                 err
             )
         })?;
+
+        let mut source_file = fs::File::open(&source_path).map_err(|err| {
+            format!(
+                "cannot open source file '{}': {}",
+                source_path.display(),
+                err
+            )
+        })?;
+        std::io::copy(&mut source_file, &mut archive).map_err(|err| {
+            format!(
+                "cannot write source file '{}' to archive '{}': {}",
+                source_path.display(),
+                archive_path.display(),
+                err
+            )
+        })?;
+    }
+
+    archive.finish().map_err(|err| {
+        format!(
+            "cannot finish archive file '{}': {}",
+            archive_path.display(),
+            err
+        )
+    })?;
+
+    set_read_only(&archive_path).expect("setting vault ZIP to read-only");
 
     Ok(())
 }
