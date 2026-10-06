@@ -610,3 +610,124 @@ pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
     serde_json::to_string(&handles)
         .map_err(|err| format!("cannot serialize handles as JSON: {}", err))
 }
+
+/// Gets all addresses from AddressBook-v22.abcddb
+/// # Arguments
+/// * `address_book` - The path to the AddressBook-v22.abcddb file
+/// # Returns
+/// * `Ok(String)` - Addresses in JSON format if successful.
+/// * `Err(String)` - An error message if the operation fails.
+fn get_addresses_from_addressbook(address_book: &Path) -> Result<String, String> {
+    // Stub implementation
+    Ok("[]".to_string())
+}
+
+#[cfg(test)]
+mod address_book_tests {
+    use super::get_addresses_from_addressbook;
+    use rusqlite::Connection;
+    use serde_json::json;
+
+    #[test]
+    fn returns_addresses_as_json() {
+        let temp_dir = tempfile::tempdir().expect("create temporary directory");
+        let address_book = temp_dir.path().join("AddressBook-v22.abcddb");
+        let connection =
+            Connection::open(&address_book).expect("create temporary address book database");
+
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE ZABCDRECORD (
+                    Z_PK INTEGER PRIMARY KEY,
+                    ZUNIQUEID TEXT,
+                    ZTYPE INTEGER,
+                    ZFIRSTNAME TEXT,
+                    ZMIDDLENAME TEXT,
+                    ZLASTNAME TEXT,
+                    ZNICKNAME TEXT,
+                    ZORGANIZATION TEXT,
+                    ZJOBTITLE TEXT
+                );
+                CREATE TABLE ZABCDPHONENUMBER (
+                    Z_PK INTEGER PRIMARY KEY,
+                    ZOWNER INTEGER,
+                    ZFULLNUMBER TEXT
+                );
+                CREATE TABLE ZABCDEMAILADDRESS (
+                    Z_PK INTEGER PRIMARY KEY,
+                    ZOWNER INTEGER,
+                    ZADDRESS TEXT
+                );
+                INSERT INTO ZABCDRECORD (
+                    Z_PK, ZUNIQUEID, ZTYPE, ZFIRSTNAME, ZMIDDLENAME, ZLASTNAME,
+                    ZNICKNAME, ZORGANIZATION, ZJOBTITLE
+                ) VALUES
+                    (1, 'record-ada', 0, 'Ada', 'Byron', 'Lovelace', 'Ada',
+                     'Analytical Engines', 'Mathematician'),
+                    (2, 'record-grace', 0, 'Grace', NULL, 'Hopper', 'Amazing Grace',
+                     'Navy', 'Rear Admiral'),
+                    (3, 'record-alan', 0, 'Alan', 'Mathison', 'Turing', NULL,
+                     'Bletchley Park', 'Cryptanalyst');
+                INSERT INTO ZABCDPHONENUMBER (Z_PK, ZOWNER, ZFULLNUMBER) VALUES
+                    (1, 1, '+1-555-0101'),
+                    (2, 2, '+1-555-0102'),
+                    (3, 3, '+1-555-0103');
+                INSERT INTO ZABCDEMAILADDRESS (Z_PK, ZOWNER, ZADDRESS) VALUES
+                    (1, 1, 'ada@example.test'),
+                    (2, 2, 'grace@example.test'),
+                    (3, 3, 'alan@example.test');
+                ",
+            )
+            .expect("populate temporary address book database");
+        drop(connection);
+
+        let actual = get_addresses_from_addressbook(&address_book)
+            .expect("get addresses from temporary address book");
+        let actual_json: serde_json::Value =
+            serde_json::from_str(&actual).expect("returned string should be valid JSON");
+        let expected_json = json!([
+            {
+                "contact_id": 2,
+                "contact_unique_id": "record-grace",
+                "record_type": 0,
+                "first_name": "Grace",
+                "middle_name": null,
+                "last_name": "Hopper",
+                "nickname": "Amazing Grace",
+                "organization": "Navy",
+                "job_title": "Rear Admiral",
+                "phone_numbers": "+1-555-0102",
+                "email_addresses": "grace@example.test"
+            },
+            {
+                "contact_id": 1,
+                "contact_unique_id": "record-ada",
+                "record_type": 0,
+                "first_name": "Ada",
+                "middle_name": "Byron",
+                "last_name": "Lovelace",
+                "nickname": "Ada",
+                "organization": "Analytical Engines",
+                "job_title": "Mathematician",
+                "phone_numbers": "+1-555-0101",
+                "email_addresses": "ada@example.test"
+            },
+            {
+                "contact_id": 3,
+                "contact_unique_id": "record-alan",
+                "record_type": 0,
+                "first_name": "Alan",
+                "middle_name": "Mathison",
+                "last_name": "Turing",
+                "nickname": null,
+                "organization": "Bletchley Park",
+                "job_title": "Cryptanalyst",
+                "phone_numbers": "+1-555-0103",
+                "email_addresses": "alan@example.test"
+            }
+        ]);
+
+        assert_eq!(actual_json, expected_json);
+    }
+}
