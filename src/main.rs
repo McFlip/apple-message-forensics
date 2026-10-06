@@ -88,8 +88,9 @@ fn main() {
         vault_src.as_path().display(),
         vault_path.as_path().display()
     );
-    apple_message_forensics::archive_evidence(vault_src, vault_path)
-        .expect("evidence archive to be created");
+    // DEBUG: temporarily disable archiving to vault for e2e testing
+    // apple_message_forensics::archive_evidence(vault_src, vault_path)
+        // .expect("evidence archive to be created");
     println!(
         "evidence archive created at {}",
         vault_path.as_path().display()

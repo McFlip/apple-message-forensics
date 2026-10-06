@@ -872,12 +872,13 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
         .map_err(|err| format!("cannot serialize messages as JSON: {}", err))
 }
 
+type EmailOrPhone = String;
 /// Parses the addresses JSON to create a lookup of emails and phone numbers to contacts
 /// # Arguments
 /// * `json_str` - The JSON string containing the addresses data.
 /// # Returns
-/// * `Ok(HashMap<String, String>)` - A map where keys are emails/phone numbers and the values are the JSON string of the contact.
-pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<String, String>, String> {
+/// * `Ok(HashMap<EmailOrPhone, String>)` - A map where keys are emails/phone numbers and the values are the JSON string of the contact.
+pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<EmailOrPhone, String>, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
