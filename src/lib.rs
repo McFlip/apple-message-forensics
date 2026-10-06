@@ -777,3 +777,15 @@ mod address_book_tests {
     }
 }
 
+/// Gets all addresses from AddressBook-v22.abcddb files listed in a SHA-256 manifest.
+/// # Arguments
+/// * `manifest_path` - The path to the SHA-256 manifest file. Manifest lists relative paths.
+/// * `working_dir` - The path to the working copy of the collected evidence.
+pub fn get_all_addresses(manifest_path: &Path, working_dir: &Path) -> Result<String, String> {
+    // Stub implementation.
+    // In a real implementation, you would read the manifest file to find the paths to each AddressBook-v22.abcddb,
+    // then call get_addresses_from_addressbook with that path,
+    // combine the results for each address book into a single JSON array,
+    // and return the combined JSON string.
+    Ok("[]".to_string())
+}
