@@ -837,8 +837,34 @@ pub fn get_all_addresses(manifest_path: &Path, working_dir: &Path) -> Result<Str
 /// * `Ok(String)` - Messages in JSON format if successful.
 /// * `Err(String)` - An error message if the operation fails.
 pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
-    // Stub implementation for extracting messages from chat.db
-    // In a real implementation, you would query the chat.db database using `msg-query.sql` and extract messages.
-    // For now, we return an empty JSON array.
-    Ok("[]".to_string())
+    #[derive(serde::Serialize)]
+    struct Message {
+        timestamp: Option<String>,
+        chat: Option<String>,
+        sender: Option<String>,
+        message: Option<String>,
+        attachment: Option<String>,
+    }
+
+    let connection = Connection::open(chat_db)
+        .map_err(|err| format!("cannot open chat database '{}': {}", chat_db.display(), err))?;
+    let mut statement = connection
+        .prepare(include_str!("../query/msg-query.sql"))
+        .map_err(|err| format!("cannot prepare message query: {}", err))?;
+    let messages = statement
+        .query_map([], |row| {
+            Ok(Message {
+                timestamp: row.get(0)?,
+                chat: row.get(1)?,
+                sender: row.get(2)?,
+                message: row.get(3)?,
+                attachment: row.get(4)?,
+            })
+        })
+        .map_err(|err| format!("cannot query messages: {}", err))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read message row: {}", err))?;
+
+    serde_json::to_string(&messages)
+        .map_err(|err| format!("cannot serialize messages as JSON: {}", err))
 }

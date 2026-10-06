@@ -6,7 +6,7 @@ use tempfile::tempdir;
 const CHAT_SCHEMA: &str = include_str!("../schema/chat-schema.sql");
 
 #[test]
-fn get_all_messages_returns_empty_json_array_for_stub() {
+fn get_all_messages_returns_messages_as_json() {
     let temp_dir = tempdir().expect("create temporary directory");
     let db_path = temp_dir.path().join("chat.db");
     let connection = Connection::open(&db_path).expect("create test chat database");
