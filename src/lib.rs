@@ -986,9 +986,40 @@ pub struct Message {
 /// * `Ok(Vec<Message>)` - A vector of Message structs if successful.
 /// * `Err(String)` - An error message if the unmarshalling fails.
 pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, String> {
-    // Stub implementation for unmarshalling messages from JSON. This function should parse the JSON string and return a vector of Message structs.
-    // For now, we will return an empty vector to satisfy the function signature.
-    Ok(Vec::new())
+    #[derive(serde::Deserialize)]
+    struct SerializedMessage {
+        timestamp: String,
+        chat: Option<String>,
+        sender: String,
+        message: String,
+        attachment: Option<String>,
+    }
+
+    let serialized_messages: Vec<SerializedMessage> = serde_json::from_str(json_str)
+        .map_err(|err| format!("cannot parse messages JSON: {}", err))?;
+
+    serialized_messages
+        .into_iter()
+        .enumerate()
+        .map(|(index, message)| {
+            let timestamp = DateTime::parse_from_rfc3339(&message.timestamp)
+                .map_err(|err| {
+                    format!(
+                        "cannot parse timestamp for message at index {}: {}",
+                        index, err
+                    )
+                })?
+                .with_timezone(&Utc);
+
+            Ok(Message {
+                timestamp,
+                chat: message.chat,
+                sender: message.sender,
+                message: message.message,
+                attachment: message.attachment,
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
