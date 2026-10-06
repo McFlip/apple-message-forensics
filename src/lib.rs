@@ -984,10 +984,10 @@ mod unmarshal_addresses_tests {
 
 #[derive(Clone)]
 pub struct Message {
-    timestamp: DateTime<Utc>,
+    timestamp: Option<DateTime<Utc>>,
     chat: Option<String>,
-    sender: String,
-    message: String,
+    sender: Option<String>,
+    message: Option<String>,
     attachment: Option<String>,
 }
 
@@ -1000,10 +1000,10 @@ pub struct Message {
 pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, String> {
     #[derive(serde::Deserialize)]
     struct SerializedMessage {
-        timestamp: String,
+        timestamp: Option<String>,
         chat: Option<String>,
-        sender: String,
-        message: String,
+        sender: Option<String>,
+        message: Option<String>,
         attachment: Option<String>,
     }
 
@@ -1014,14 +1014,20 @@ pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, Stri
         .into_iter()
         .enumerate()
         .map(|(index, message)| {
-            let timestamp = DateTime::parse_from_rfc3339(&message.timestamp)
-                .map_err(|err| {
-                    format!(
-                        "cannot parse timestamp for message at index {}: {}",
-                        index, err
-                    )
-                })?
-                .with_timezone(&Utc);
+            let timestamp = message
+                .timestamp
+                .as_deref()
+                .map(|timestamp| {
+                    DateTime::parse_from_rfc3339(timestamp)
+                        .map(|timestamp| timestamp.with_timezone(&Utc))
+                        .map_err(|err| {
+                            format!(
+                                "cannot parse timestamp for message at index {}: {}",
+                                index, err
+                            )
+                        })
+                })
+                .transpose()?;
 
             Ok(Message {
                 timestamp,
@@ -1052,7 +1058,11 @@ mod unmarshal_messages_tests {
 
         for (actual, expected) in actual.iter().zip(&expected) {
             assert_eq!(
-                actual.timestamp.to_rfc3339_opts(SecondsFormat::Secs, true),
+                actual
+                    .timestamp
+                    .as_ref()
+                    .expect("fixture timestamp should be present")
+                    .to_rfc3339_opts(SecondsFormat::Secs, true),
                 expected["timestamp"]
                     .as_str()
                     .expect("fixture timestamp should be a string")
@@ -1065,22 +1075,53 @@ mod unmarshal_messages_tests {
                         .expect("fixture chat should be a string")
                 )
             );
+            assert_eq!(actual.sender.as_deref(), expected["sender"].as_str());
             assert_eq!(
-                actual.sender,
-                expected["sender"]
-                    .as_str()
-                    .expect("fixture sender should be a string")
-            );
-            assert_eq!(
-                actual.message,
+                actual.message.as_deref(),
                 expected["message"]
                     .as_str()
                     .expect("fixture message should be a string")
+                    .into()
             );
             assert_eq!(
                 actual.attachment.as_deref(),
                 expected["attachment"].as_str()
             );
+        }
+    }
+
+    #[test]
+    fn unmarshals_null_sender() {
+        let messages_json = r#"[{
+            "timestamp": "2024-10-02T11:28:51Z",
+            "chat": null,
+            "sender": null,
+            "message": "Message with no sender",
+            "attachment": null
+        }]"#;
+
+        let actual =
+            unmarshal_messages_from_json(messages_json).expect("unmarshal null sender message");
+
+        assert_eq!(actual.len(), 1);
+        assert_eq!(actual[0].sender, None);
+        assert_eq!(actual[0].message.as_deref(), Some("Message with no sender"));
+    }
+
+    #[test]
+    fn unmarshals_all_null_or_missing_fields() {
+        let actual = unmarshal_messages_from_json(
+            r#"[{"timestamp":null,"chat":null,"sender":null,"message":null,"attachment":null},{}]"#,
+        )
+        .expect("unmarshal messages with null and missing fields");
+
+        assert_eq!(actual.len(), 2);
+        for message in actual {
+            assert!(message.timestamp.is_none());
+            assert!(message.chat.is_none());
+            assert!(message.sender.is_none());
+            assert!(message.message.is_none());
+            assert!(message.attachment.is_none());
         }
     }
 }
@@ -1100,22 +1141,23 @@ pub fn join_messages_to_contacts(
         .iter()
         .cloned()
         .map(|message| {
-            let sender_key = if message.sender.contains('@') {
-                Some(message.sender.to_lowercase())
-            } else {
-                let digits = message
-                    .sender
-                    .chars()
-                    .filter(char::is_ascii_digit)
-                    .collect::<String>();
-                if digits.is_empty() {
-                    None
-                } else if digits.starts_with('1') {
-                    Some(format!("+{}", digits))
+            let sender_key = message.sender.as_deref().and_then(|sender| {
+                if sender.contains('@') {
+                    Some(sender.to_lowercase())
                 } else {
-                    Some(format!("+1{}", digits))
+                    let digits = sender
+                        .chars()
+                        .filter(char::is_ascii_digit)
+                        .collect::<String>();
+                    if digits.is_empty() {
+                        None
+                    } else if digits.starts_with('1') {
+                        Some(format!("+{}", digits))
+                    } else {
+                        Some(format!("+1{}", digits))
+                    }
                 }
-            };
+            });
             let contact_json = sender_key.and_then(|key| addresses.get(&key).cloned());
             (message, contact_json)
         })
@@ -1130,29 +1172,31 @@ mod join_messages_tests {
 
     #[test]
     fn joins_messages_using_normalized_email_and_phone_senders() {
-        let timestamp = DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
-            .expect("valid test timestamp")
-            .with_timezone(&Utc);
+        let timestamp = Some(
+            DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
+                .expect("valid test timestamp")
+                .with_timezone(&Utc),
+        );
         let messages = vec![
             Message {
                 timestamp,
                 chat: None,
-                sender: "ALICE@EXAMPLE.COM".to_string(),
-                message: "Email message".to_string(),
+                sender: Some("ALICE@EXAMPLE.COM".to_string()),
+                message: Some("Email message".to_string()),
                 attachment: None,
             },
             Message {
                 timestamp,
                 chat: None,
-                sender: "1 (555) 123-4567".to_string(),
-                message: "Phone message".to_string(),
+                sender: Some("1 (555) 123-4567".to_string()),
+                message: Some("Phone message".to_string()),
                 attachment: None,
             },
             Message {
                 timestamp,
                 chat: None,
-                sender: "unknown@example.com".to_string(),
-                message: "Unmatched message".to_string(),
+                sender: Some("unknown@example.com".to_string()),
+                message: Some("Unmatched message".to_string()),
                 attachment: None,
             },
         ];
@@ -1167,7 +1211,7 @@ mod join_messages_tests {
         assert_eq!(joined[0].1.as_deref(), Some("alice contact"));
         assert_eq!(joined[1].1.as_deref(), Some("phone contact"));
         assert_eq!(joined[2].1, None);
-        assert_eq!(joined[2].0.message, "Unmatched message");
+        assert_eq!(joined[2].0.message.as_deref(), Some("Unmatched message"));
     }
 }
 
@@ -1183,10 +1227,9 @@ pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_js
             .iter()
             .map(|(message, contact)| {
                 serde_json::json!({
-                    "timestamp": message.timestamp.to_rfc3339_opts(
-                        chrono::SecondsFormat::Secs,
-                        true
-                    ),
+                    "timestamp": message.timestamp.as_ref().map(|timestamp| {
+                        timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+                    }),
                     "chat": message.chat,
                     "sender": message.sender,
                     "message": message.message,
@@ -1206,16 +1249,18 @@ mod marshal_msg_contact_tuple_tests {
 
     #[test]
     fn marshals_messages_with_optional_contacts_to_json() {
-        let timestamp = DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
-            .expect("valid test timestamp")
-            .with_timezone(&Utc);
+        let timestamp = Some(
+            DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
+                .expect("valid test timestamp")
+                .with_timezone(&Utc),
+        );
         let joined: Vec<MsgContactTuple> = vec![
             (
                 Message {
                     timestamp,
                     chat: Some("chat333086607288203406".to_string()),
-                    sender: "+15551234567".to_string(),
-                    message: "Hello".to_string(),
+                    sender: Some("+15551234567".to_string()),
+                    message: Some("Hello".to_string()),
                     attachment: None,
                 },
                 Some(r#"{"first_name":"Alice"}"#.to_string()),
@@ -1224,8 +1269,8 @@ mod marshal_msg_contact_tuple_tests {
                 Message {
                     timestamp,
                     chat: None,
-                    sender: "unknown@example.com".to_string(),
-                    message: "No matching contact".to_string(),
+                    sender: Some("unknown@example.com".to_string()),
+                    message: Some("No matching contact".to_string()),
                     attachment: Some("image.png".to_string()),
                 },
                 None,

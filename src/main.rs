@@ -116,7 +116,7 @@ fn main() {
     )
     .expect("to get addresses");
     let addresses_path = json_dir.join("addresses.json");
-    std::fs::write(&addresses_path, addresses).expect("to write addresses to JSON file");
+    std::fs::write(&addresses_path, &addresses).expect("to write addresses to JSON file");
     println!(
         "Extracted contacts to JSON file at {}",
         addresses_path.display()
@@ -128,10 +128,31 @@ fn main() {
     );
     let messages = apple_message_forensics::get_all_messages(&chat_db).expect("to get messages");
     let messages_path = json_dir.join("messages.json");
-    std::fs::write(&messages_path, messages).expect("to write messages to JSON file");
+    std::fs::write(&messages_path, &messages).expect("to write messages to JSON file");
     println!(
         "Extracted messages to JSON file at {}",
         messages_path.display()
+    );
+
+    println!("Parsing contacts...");
+    let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses)
+        .expect("to parse contacts");
+
+    println!("Parsing messages...");
+    let messages = apple_message_forensics::unmarshal_messages_from_json(&messages)
+        .expect("to parse messages");
+
+    println!("Joining messages with contacts...");
+    let joined = apple_message_forensics::join_messages_to_contacts(&messages, &contacts);
+
+    println!("Marshaling joined messages and contacts to JSON...");
+    let joined_json = apple_message_forensics::marshal_msg_contact_tuple_to_json(&joined);
+    let joined_path = json_dir.join("joined.json");
+    std::fs::write(&joined_path, &joined_json.to_string())
+        .expect("to write joined messages and contacts to JSON file");
+    println!(
+        "Marshaled joined messages and contacts to JSON file at {}",
+        joined_path.display()
     );
 
     // TODO: Create HTML report from JSON data and attachments
