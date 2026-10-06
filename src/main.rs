@@ -96,6 +96,19 @@ fn main() {
     );
 
     // TODO: parse chat.db and AddressBook-v22.abcddb to extract messages and contacts to JSON
+    let json_dir = args.output.join("json");
+    let handles = apple_message_forensics::get_all_handles(&chat_db).expect("to get handles");
+    println!(
+        "Extracting handles from chat database at {} ...",
+        chat_db.display()
+    );
+    let handles_path = json_dir.join("handles.json");
+    std::fs::write(&handles_path, handles).expect("to write handles to JSON file");
+    println!(
+        "Extracted handles to JSON file at {}",
+        handles_path.display()
+    );
+
     // TODO: Create HTML report from JSON data and attachments
     // TODO: Create deliverable package with report, JSON, evidence, and manifest
 }

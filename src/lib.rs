@@ -577,7 +577,36 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
 /// * `Ok(String)` - Handles in JSON format if successful.
 /// * `Err(String)` - An error message if the operation fails.
 pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
-    // Placeholder implementation for testing purposes.
-    let dummy_result = "test".to_string();
-    Ok(dummy_result)
+    #[derive(serde::Serialize)]
+    struct Handle {
+        handle_id: i64,
+        handle_identifier: String,
+        service: String,
+        country: Option<String>,
+        uncanonicalized_id: Option<String>,
+        person_centric_id: Option<String>,
+    }
+
+    let connection = Connection::open(chat_db)
+        .map_err(|err| format!("cannot open chat database '{}': {}", chat_db.display(), err))?;
+    let mut statement = connection
+        .prepare(include_str!("../query/handle-query.sql"))
+        .map_err(|err| format!("cannot prepare handle query: {}", err))?;
+    let handles = statement
+        .query_map([], |row| {
+            Ok(Handle {
+                handle_id: row.get(0)?,
+                handle_identifier: row.get(1)?,
+                service: row.get(2)?,
+                country: row.get(3)?,
+                uncanonicalized_id: row.get(4)?,
+                person_centric_id: row.get(5)?,
+            })
+        })
+        .map_err(|err| format!("cannot query handles: {}", err))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read handle row: {}", err))?;
+
+    serde_json::to_string(&handles)
+        .map_err(|err| format!("cannot serialize handles as JSON: {}", err))
 }
