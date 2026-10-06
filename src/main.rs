@@ -109,6 +109,19 @@ fn main() {
         handles_path.display()
     );
 
+    println!("Extracting contacts from AddressBook-v22.abcddb ...");
+    let addresses = apple_message_forensics::get_all_addresses(
+        &file_hash_manifest,
+        &args.output.join("evidence").join("working_copy"),
+    )
+    .expect("to get addresses");
+    let addresses_path = json_dir.join("addresses.json");
+    std::fs::write(&addresses_path, addresses).expect("to write addresses to JSON file");
+    println!(
+        "Extracted contacts to JSON file at {}",
+        addresses_path.display()
+    );
+
     // TODO: Create HTML report from JSON data and attachments
     // TODO: Create deliverable package with report, JSON, evidence, and manifest
 }

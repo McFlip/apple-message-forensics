@@ -782,10 +782,47 @@ mod address_book_tests {
 /// * `manifest_path` - The path to the SHA-256 manifest file. Manifest lists relative paths.
 /// * `working_dir` - The path to the working copy of the collected evidence.
 pub fn get_all_addresses(manifest_path: &Path, working_dir: &Path) -> Result<String, String> {
-    // Stub implementation.
-    // In a real implementation, you would read the manifest file to find the paths to each AddressBook-v22.abcddb,
-    // then call get_addresses_from_addressbook with that path,
-    // combine the results for each address book into a single JSON array,
-    // and return the combined JSON string.
-    Ok("[]".to_string())
+    let manifest_contents = fs::read_to_string(manifest_path).map_err(|err| {
+        format!(
+            "cannot read hash manifest '{}': {}",
+            manifest_path.display(),
+            err
+        )
+    })?;
+    let mut all_addresses = Vec::new();
+
+    for (line_number, line) in manifest_contents.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let (_, relative_path) = parse_hash_manifest_line(line, line_number + 1, manifest_path)?;
+        if relative_path
+            .file_name()
+            .is_none_or(|file_name| file_name != "AddressBook-v22.abcddb")
+        {
+            continue;
+        }
+
+        let address_book_path = working_dir.join(&relative_path);
+        let addresses_json = get_addresses_from_addressbook(&address_book_path).map_err(|err| {
+            format!(
+                "cannot get addresses from address book '{}': {}",
+                address_book_path.display(),
+                err
+            )
+        })?;
+        let mut addresses: Vec<serde_json::Value> =
+            serde_json::from_str(&addresses_json).map_err(|err| {
+                format!(
+                    "cannot parse addresses from address book '{}' as JSON: {}",
+                    address_book_path.display(),
+                    err
+                )
+            })?;
+        all_addresses.append(&mut addresses);
+    }
+
+    serde_json::to_string(&all_addresses)
+        .map_err(|err| format!("cannot serialize all addresses as JSON: {}", err))
 }
