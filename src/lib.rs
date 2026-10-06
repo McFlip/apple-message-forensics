@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use hex;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
@@ -854,8 +855,9 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
         .map_err(|err| format!("cannot prepare message query: {}", err))?;
     let messages = statement
         .query_map([], |row| {
+            let timestamp: Option<String> = row.get(0)?;
             Ok(Message {
-                timestamp: row.get(0)?,
+                timestamp,
                 chat: row.get(1)?,
                 sender: row.get(2)?,
                 message: row.get(3)?,
@@ -965,6 +967,77 @@ mod parse_addresses_tests {
             let expected_contact =
                 serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
             assert_eq!(actual.get(&normalized_phone), Some(&expected_contact));
+        }
+    }
+}
+
+pub struct Message {
+    timestamp: DateTime<Utc>,
+    chat: Option<String>,
+    sender: String,
+    message: String,
+    attachment: Option<String>,
+}
+
+/// Unmarshals messages from JSON string to a vector of Message structs
+/// # Arguments
+/// * `json_str` - The JSON string containing the messages data.
+/// # Returns
+/// * `Ok(Vec<Message>)` - A vector of Message structs if successful.
+/// * `Err(String)` - An error message if the unmarshalling fails.
+pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, String> {
+    // Stub implementation for unmarshalling messages from JSON. This function should parse the JSON string and return a vector of Message structs.
+    // For now, we will return an empty vector to satisfy the function signature.
+    Ok(Vec::new())
+}
+
+#[cfg(test)]
+mod unmarshal_messages_tests {
+    use super::unmarshal_messages_from_json;
+    use chrono::SecondsFormat;
+
+    #[test]
+    fn unmarshals_fixture_messages() {
+        let messages_json = include_str!("../tests/fixtures/messages.json");
+        let expected: Vec<serde_json::Value> =
+            serde_json::from_str(messages_json).expect("parse messages fixture");
+        let actual =
+            unmarshal_messages_from_json(messages_json).expect("unmarshal messages fixture");
+
+        assert_eq!(expected.len(), 20);
+        assert_eq!(actual.len(), expected.len());
+
+        for (actual, expected) in actual.iter().zip(&expected) {
+            assert_eq!(
+                actual.timestamp.to_rfc3339_opts(SecondsFormat::Secs, true),
+                expected["timestamp"]
+                    .as_str()
+                    .expect("fixture timestamp should be a string")
+            );
+            assert_eq!(
+                actual.chat.as_deref(),
+                Some(
+                    expected["chat"]
+                        .as_str()
+                        .expect("fixture chat should be a string")
+                )
+            );
+            assert_eq!(
+                actual.sender,
+                expected["sender"]
+                    .as_str()
+                    .expect("fixture sender should be a string")
+            );
+            assert_eq!(
+                actual.message,
+                expected["message"]
+                    .as_str()
+                    .expect("fixture message should be a string")
+            );
+            assert_eq!(
+                actual.attachment.as_deref(),
+                expected["attachment"].as_str()
+            );
         }
     }
 }

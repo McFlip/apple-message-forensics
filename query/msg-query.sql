@@ -1,5 +1,5 @@
 SELECT
-    datetime(m.date / 1000000000 + 978307200, 'unixepoch') AS timestamp,
+    strftime('%Y-%m-%dT%H:%M:%SZ', m.date / 1000000000 + 978307200, 'unixepoch') AS timestamp,
     COALESCE(c.display_name, c.chat_identifier) AS chat,
     h.id AS sender,
     m.text AS message,

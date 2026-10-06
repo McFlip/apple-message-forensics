@@ -90,21 +90,21 @@ fn get_all_messages_returns_messages_as_json() {
         actual_json,
         json!([
             {
-                "timestamp": "2001-01-01 00:00:01",
+                "timestamp": "2001-01-01T00:00:01Z",
                 "chat": "Chat 1",
                 "sender": "sender-1@example.test",
                 "message": "Test message 1",
                 "attachment": "attachment-1.txt"
             },
             {
-                "timestamp": "2001-01-01 00:00:02",
+                "timestamp": "2001-01-01T00:00:02Z",
                 "chat": "Chat 2",
                 "sender": "sender-2@example.test",
                 "message": "Test message 2",
                 "attachment": "attachment-2.txt"
             },
             {
-                "timestamp": "2001-01-01 00:00:03",
+                "timestamp": "2001-01-01T00:00:03Z",
                 "chat": "Chat 3",
                 "sender": "sender-3@example.test",
                 "message": "Test message 3",
