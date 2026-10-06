@@ -781,6 +781,9 @@ mod address_book_tests {
 /// # Arguments
 /// * `manifest_path` - The path to the SHA-256 manifest file. Manifest lists relative paths.
 /// * `working_dir` - The path to the working copy of the collected evidence.
+/// # Returns
+/// * `Ok(String)` - Addresses in JSON format if successful.
+/// * `Err(String)` - An error message if the operation fails.
 pub fn get_all_addresses(manifest_path: &Path, working_dir: &Path) -> Result<String, String> {
     let manifest_contents = fs::read_to_string(manifest_path).map_err(|err| {
         format!(
@@ -825,4 +828,17 @@ pub fn get_all_addresses(manifest_path: &Path, working_dir: &Path) -> Result<Str
 
     serde_json::to_string(&all_addresses)
         .map_err(|err| format!("cannot serialize all addresses as JSON: {}", err))
+}
+
+/// Gets all messages from chat.db
+/// # Arguments
+/// * `chat_db` - The path to the iMessage chat database file.
+/// # Returns
+/// * `Ok(String)` - Messages in JSON format if successful.
+/// * `Err(String)` - An error message if the operation fails.
+pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
+    // Stub implementation for extracting messages from chat.db
+    // In a real implementation, you would query the chat.db database using `msg-query.sql` and extract messages.
+    // For now, we return an empty JSON array.
+    Ok("[]".to_string())
 }
