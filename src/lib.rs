@@ -618,8 +618,53 @@ pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
 /// * `Ok(String)` - Addresses in JSON format if successful.
 /// * `Err(String)` - An error message if the operation fails.
 fn get_addresses_from_addressbook(address_book: &Path) -> Result<String, String> {
-    // Stub implementation
-    Ok("[]".to_string())
+    #[derive(serde::Serialize)]
+    struct Address {
+        contact_id: i64,
+        contact_unique_id: Option<String>,
+        record_type: Option<i64>,
+        first_name: Option<String>,
+        middle_name: Option<String>,
+        last_name: Option<String>,
+        nickname: Option<String>,
+        organization: Option<String>,
+        job_title: Option<String>,
+        phone_numbers: Option<String>,
+        email_addresses: Option<String>,
+    }
+
+    let connection = Connection::open(address_book).map_err(|err| {
+        format!(
+            "cannot open address book database '{}': {}",
+            address_book.display(),
+            err
+        )
+    })?;
+    let mut statement = connection
+        .prepare(include_str!("../query/addr-query.sql"))
+        .map_err(|err| format!("cannot prepare address book query: {}", err))?;
+    let addresses = statement
+        .query_map([], |row| {
+            Ok(Address {
+                contact_id: row.get(0)?,
+                contact_unique_id: row.get(1)?,
+                record_type: row.get(2)?,
+                first_name: row.get(3)?,
+                middle_name: row.get(4)?,
+                last_name: row.get(5)?,
+                nickname: row.get(6)?,
+                organization: row.get(7)?,
+                job_title: row.get(8)?,
+                phone_numbers: row.get(9)?,
+                email_addresses: row.get(10)?,
+            })
+        })
+        .map_err(|err| format!("cannot query address book: {}", err))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read address book row: {}", err))?;
+
+    serde_json::to_string(&addresses)
+        .map_err(|err| format!("cannot serialize addresses as JSON: {}", err))
 }
 
 #[cfg(test)]
@@ -731,3 +776,4 @@ mod address_book_tests {
         assert_eq!(actual_json, expected_json);
     }
 }
+
