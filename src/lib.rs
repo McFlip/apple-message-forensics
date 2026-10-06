@@ -982,6 +982,7 @@ mod unmarshal_addresses_tests {
     }
 }
 
+#[derive(Clone)]
 pub struct Message {
     timestamp: DateTime<Utc>,
     chat: Option<String>,
@@ -1081,5 +1082,90 @@ mod unmarshal_messages_tests {
                 expected["attachment"].as_str()
             );
         }
+    }
+}
+
+/// Joins messages with their corresponding contacts based on the sender's email or phone number.
+/// # Arguments
+/// * `messages` - A slice of Message structs to be joined with contacts.
+/// * `addresses` - A HashMap where keys are emails/phone numbers and values are the JSON string of the contact.
+/// # Returns
+/// * `Vec<(Message, Option<String>)>` - A vector of tuples where each tuple contains a Message and an optional contact JSON string. If a contact is found for the message's sender, the second element of the tuple will be `Some(contact_json)`, otherwise it will be `None`.
+pub fn join_messages_to_contacts(
+    messages: &Vec<Message>,
+    addresses: &HashMap<String, String>,
+) -> Vec<(Message, Option<String>)> {
+    messages
+        .iter()
+        .cloned()
+        .map(|message| {
+            let sender_key = if message.sender.contains('@') {
+                Some(message.sender.to_lowercase())
+            } else {
+                let digits = message
+                    .sender
+                    .chars()
+                    .filter(char::is_ascii_digit)
+                    .collect::<String>();
+                if digits.is_empty() {
+                    None
+                } else if digits.starts_with('1') {
+                    Some(format!("+{}", digits))
+                } else {
+                    Some(format!("+1{}", digits))
+                }
+            };
+            let contact_json = sender_key.and_then(|key| addresses.get(&key).cloned());
+            (message, contact_json)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod join_messages_tests {
+    use super::{Message, join_messages_to_contacts};
+    use chrono::{DateTime, Utc};
+    use std::collections::HashMap;
+
+    #[test]
+    fn joins_messages_using_normalized_email_and_phone_senders() {
+        let timestamp = DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
+            .expect("valid test timestamp")
+            .with_timezone(&Utc);
+        let messages = vec![
+            Message {
+                timestamp,
+                chat: None,
+                sender: "ALICE@EXAMPLE.COM".to_string(),
+                message: "Email message".to_string(),
+                attachment: None,
+            },
+            Message {
+                timestamp,
+                chat: None,
+                sender: "1 (555) 123-4567".to_string(),
+                message: "Phone message".to_string(),
+                attachment: None,
+            },
+            Message {
+                timestamp,
+                chat: None,
+                sender: "unknown@example.com".to_string(),
+                message: "Unmatched message".to_string(),
+                attachment: None,
+            },
+        ];
+        let addresses = HashMap::from([
+            ("alice@example.com".to_string(), "alice contact".to_string()),
+            ("+15551234567".to_string(), "phone contact".to_string()),
+        ]);
+
+        let joined = join_messages_to_contacts(&messages, &addresses);
+
+        assert_eq!(joined.len(), 3);
+        assert_eq!(joined[0].1.as_deref(), Some("alice contact"));
+        assert_eq!(joined[1].1.as_deref(), Some("phone contact"));
+        assert_eq!(joined[2].1, None);
+        assert_eq!(joined[2].0.message, "Unmatched message");
     }
 }
