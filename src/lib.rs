@@ -1085,6 +1085,7 @@ mod unmarshal_messages_tests {
     }
 }
 
+pub type MsgContactTuple = (Message, Option<String>);
 /// Joins messages with their corresponding contacts based on the sender's email or phone number.
 /// # Arguments
 /// * `messages` - A slice of Message structs to be joined with contacts.
@@ -1094,7 +1095,7 @@ mod unmarshal_messages_tests {
 pub fn join_messages_to_contacts(
     messages: &[Message],
     addresses: &HashMap<String, String>,
-) -> Vec<(Message, Option<String>)> {
+) -> Vec<MsgContactTuple> {
     messages
         .iter()
         .cloned()
@@ -1167,5 +1168,90 @@ mod join_messages_tests {
         assert_eq!(joined[1].1.as_deref(), Some("phone contact"));
         assert_eq!(joined[2].1, None);
         assert_eq!(joined[2].0.message, "Unmatched message");
+    }
+}
+
+/// Marshals a vector of (Message, Option<String>) tuples into a JSON array.
+/// Each tuple is represented as a JSON object with the message fields and an optional contact field.
+/// # Arguments
+/// * `joined` - A vector of tuples where each tuple contains a Message and an optional contact JSON string.
+/// # Returns
+/// * `serde_json::Value` - A JSON array where each element is a JSON object representing a message and its associated contact (if any).
+pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_json::Value {
+    serde_json::Value::Array(
+        joined
+            .iter()
+            .map(|(message, contact)| {
+                serde_json::json!({
+                    "timestamp": message.timestamp.to_rfc3339_opts(
+                        chrono::SecondsFormat::Secs,
+                        true
+                    ),
+                    "chat": message.chat,
+                    "sender": message.sender,
+                    "message": message.message,
+                    "attachment": message.attachment,
+                    "contact": contact,
+                })
+            })
+            .collect(),
+    )
+}
+
+#[cfg(test)]
+mod marshal_msg_contact_tuple_tests {
+    use super::{Message, MsgContactTuple, marshal_msg_contact_tuple_to_json};
+    use chrono::{DateTime, Utc};
+    use serde_json::json;
+
+    #[test]
+    fn marshals_messages_with_optional_contacts_to_json() {
+        let timestamp = DateTime::parse_from_rfc3339("2024-10-02T11:28:51Z")
+            .expect("valid test timestamp")
+            .with_timezone(&Utc);
+        let joined: Vec<MsgContactTuple> = vec![
+            (
+                Message {
+                    timestamp,
+                    chat: Some("chat333086607288203406".to_string()),
+                    sender: "+15551234567".to_string(),
+                    message: "Hello".to_string(),
+                    attachment: None,
+                },
+                Some(r#"{"first_name":"Alice"}"#.to_string()),
+            ),
+            (
+                Message {
+                    timestamp,
+                    chat: None,
+                    sender: "unknown@example.com".to_string(),
+                    message: "No matching contact".to_string(),
+                    attachment: Some("image.png".to_string()),
+                },
+                None,
+            ),
+        ];
+
+        assert_eq!(
+            marshal_msg_contact_tuple_to_json(&joined),
+            json!([
+                {
+                    "timestamp": "2024-10-02T11:28:51Z",
+                    "chat": "chat333086607288203406",
+                    "sender": "+15551234567",
+                    "message": "Hello",
+                    "attachment": null,
+                    "contact": r#"{"first_name":"Alice"}"#
+                },
+                {
+                    "timestamp": "2024-10-02T11:28:51Z",
+                    "chat": null,
+                    "sender": "unknown@example.com",
+                    "message": "No matching contact",
+                    "attachment": "image.png",
+                    "contact": null
+                }
+            ])
+        );
     }
 }
