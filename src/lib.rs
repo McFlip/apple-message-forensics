@@ -1092,7 +1092,7 @@ mod unmarshal_messages_tests {
 /// # Returns
 /// * `Vec<(Message, Option<String>)>` - A vector of tuples where each tuple contains a Message and an optional contact JSON string. If a contact is found for the message's sender, the second element of the tuple will be `Some(contact_json)`, otherwise it will be `None`.
 pub fn join_messages_to_contacts(
-    messages: &Vec<Message>,
+    messages: &[Message],
     addresses: &HashMap<String, String>,
 ) -> Vec<(Message, Option<String>)> {
     messages
