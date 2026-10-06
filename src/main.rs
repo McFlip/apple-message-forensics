@@ -122,6 +122,18 @@ fn main() {
         addresses_path.display()
     );
 
+    println!(
+        "Extracting messages from chat database at {} ...",
+        chat_db.display()
+    );
+    let messages = apple_message_forensics::get_all_messages(&chat_db).expect("to get messages");
+    let messages_path = json_dir.join("messages.json");
+    std::fs::write(&messages_path, messages).expect("to write messages to JSON file");
+    println!(
+        "Extracted messages to JSON file at {}",
+        messages_path.display()
+    );
+
     // TODO: Create HTML report from JSON data and attachments
     // TODO: Create deliverable package with report, JSON, evidence, and manifest
 }
