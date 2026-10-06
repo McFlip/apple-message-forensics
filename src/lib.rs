@@ -3,6 +3,7 @@ use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::os::unix::fs::PermissionsExt;
 use std::{
+    collections::HashMap,
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
@@ -867,4 +868,103 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
 
     serde_json::to_string(&messages)
         .map_err(|err| format!("cannot serialize messages as JSON: {}", err))
+}
+
+/// Parses the addresses JSON to create a lookup of emails and phone numbers to contacts
+/// # Arguments
+/// * `json_str` - The JSON string containing the addresses data.
+/// # Returns
+/// * `Ok(HashMap<String, String>)` - A map where keys are emails/phone numbers and the values are the JSON string of the contact.
+pub fn parse_addresses_from_json(json_str: &str) -> Result<HashMap<String, String>, String> {
+    let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
+        .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
+    let mut addresses = HashMap::new();
+
+    for (contact_index, contact) in contacts.iter().enumerate() {
+        let contact_object = contact
+            .as_object()
+            .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
+        let contact_json = serde_json::to_string(contact).map_err(|err| {
+            format!(
+                "cannot serialize address at index {}: {}",
+                contact_index, err
+            )
+        })?;
+
+        for field in ["email_addresses", "phone_numbers"] {
+            let Some(value) = contact_object.get(field) else {
+                continue;
+            };
+            let Some(values) = value.as_str() else {
+                if value.is_null() {
+                    continue;
+                }
+                return Err(format!(
+                    "address at index {} has a non-string {} field",
+                    contact_index, field
+                ));
+            };
+
+            for value in values
+                .split('|')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                let key = if field == "email_addresses" {
+                    value.to_lowercase()
+                } else {
+                    value
+                        .chars()
+                        .filter(char::is_ascii_digit)
+                        .collect::<String>()
+                };
+                if !key.is_empty() {
+                    addresses.insert(key, contact_json.clone());
+                }
+            }
+        }
+    }
+
+    Ok(addresses)
+}
+
+#[cfg(test)]
+mod parse_addresses_tests {
+    use super::parse_addresses_from_json;
+
+    #[test]
+    fn maps_fixture_emails_and_phone_numbers_to_contacts() {
+        let addresses_json = include_str!("../tests/fixtures/addresses.json");
+        let phone_email_json = include_str!("../tests/fixtures/phone_email.json");
+        let addresses: Vec<serde_json::Value> =
+            serde_json::from_str(addresses_json).expect("parse addresses fixture");
+        let phone_email: serde_json::Value =
+            serde_json::from_str(phone_email_json).expect("parse phone and email fixture");
+
+        let actual =
+            parse_addresses_from_json(addresses_json).expect("parse addresses fixture data");
+        assert_eq!(actual.len(), 19);
+
+        for (email_index, contact_index) in [(0, 3), (2, 4), (4, 5)] {
+            let email = phone_email["emails"][email_index]
+                .as_str()
+                .expect("email fixture entry should be a string");
+            let expected_contact =
+                serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
+            assert_eq!(actual.get(email), Some(&expected_contact));
+        }
+
+        for (phone_index, contact_index) in [(0, 0), (2, 1), (4, 2)] {
+            let phone = phone_email["phone"][phone_index]
+                .as_str()
+                .expect("phone fixture entry should be a string");
+            let normalized_phone = phone
+                .chars()
+                .filter(|character| character.is_ascii_digit())
+                .collect::<String>();
+            let expected_contact =
+                serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
+            assert_eq!(actual.get(&normalized_phone), Some(&expected_contact));
+        }
+    }
 }
