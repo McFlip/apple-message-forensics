@@ -877,7 +877,7 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
 /// * `json_str` - The JSON string containing the addresses data.
 /// # Returns
 /// * `Ok(HashMap<String, String>)` - A map where keys are emails/phone numbers and the values are the JSON string of the contact.
-pub fn parse_addresses_from_json(json_str: &str) -> Result<HashMap<String, String>, String> {
+pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<String, String>, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
@@ -915,10 +915,16 @@ pub fn parse_addresses_from_json(json_str: &str) -> Result<HashMap<String, Strin
                 let key = if field == "email_addresses" {
                     value.to_lowercase()
                 } else {
-                    value
+                    let digits = value
                         .chars()
                         .filter(char::is_ascii_digit)
-                        .collect::<String>()
+                        .collect::<String>();
+                    match digits.chars().nth(0) {
+                        Some('1') => format!("+{}", digits),
+                        Some('+') => digits,
+                        Some(_) => format!("+1{}", digits),
+                        None => String::new(),
+                    }
                 };
                 if !key.is_empty() {
                     addresses.insert(key, contact_json.clone());
@@ -931,8 +937,8 @@ pub fn parse_addresses_from_json(json_str: &str) -> Result<HashMap<String, Strin
 }
 
 #[cfg(test)]
-mod parse_addresses_tests {
-    use super::parse_addresses_from_json;
+mod unmarshal_addresses_tests {
+    use super::unmarshal_addresses_from_json;
 
     #[test]
     fn maps_fixture_emails_and_phone_numbers_to_contacts() {
@@ -944,7 +950,7 @@ mod parse_addresses_tests {
             serde_json::from_str(phone_email_json).expect("parse phone and email fixture");
 
         let actual =
-            parse_addresses_from_json(addresses_json).expect("parse addresses fixture data");
+            unmarshal_addresses_from_json(addresses_json).expect("parse addresses fixture data");
         assert_eq!(actual.len(), 19);
 
         for (email_index, contact_index) in [(0, 3), (2, 4), (4, 5)] {
@@ -960,10 +966,15 @@ mod parse_addresses_tests {
             let phone = phone_email["phone"][phone_index]
                 .as_str()
                 .expect("phone fixture entry should be a string");
-            let normalized_phone = phone
+            let digits = phone
                 .chars()
                 .filter(|character| character.is_ascii_digit())
                 .collect::<String>();
+            let normalized_phone = if digits.starts_with('1') {
+                format!("+{}", digits)
+            } else {
+                format!("+1{}", digits)
+            };
             let expected_contact =
                 serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
             assert_eq!(actual.get(&normalized_phone), Some(&expected_contact));
