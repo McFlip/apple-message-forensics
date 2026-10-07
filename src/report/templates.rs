@@ -44,6 +44,8 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                         div class="nav-links" {
                             a href="contacts/index.html" { "View Contacts List" }
                             " | "
+                            a href="chats/index.html" { "View Chat Threads" }
+                            " | "
                             a href="messages/index.html" { "View All Messages" }
                         }
                     }
@@ -130,6 +132,84 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
     }
 }
 
+pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { "Chat Threads - " (meta.report.title) }
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    h1 { "Chat Threads" }
+                    a href="../index.html" { "← Back to Home" }
+                    
+                    div class="list-container" {
+                        ul {
+                            @for (chat_id, last_msg) in chats {
+                                li {
+                                    div class="chat-summary" {
+                                        a href=(format!("chat_{}.html", chat_id)) {
+                                            b { (chat_id) }
+                                        }
+                                        span class="timestamp" { (last_msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                        div class="snippet" { (last_msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn chat_thread_page(meta: &CaseMetadata, chat_id: &str, messages: &[(Message, Option<Contact>)]) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { (chat_id) " - " (meta.report.title) }
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    h1 { "Chat Thread: " (chat_id) }
+                    a href="../index.html" { "← Back to Home" }
+                    " | "
+                    a href="../chats/index.html" { "Back to Chats" }
+                    
+                    div class="message-list" {
+                        @for (msg, contact) in messages {
+                            div class="message-item" {
+                                div class="msg-header" {
+                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="sender" {
+                                        @if let Some(c) = contact {
+                                            a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                " "
+                                                (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                            }
+                                        } @else {
+                                            (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                        }
+                                    }
+                                }
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Contact>)], current_page: usize, total_pages: usize) -> Markup {
     html! {
         (maud::DOCTYPE)
@@ -157,8 +237,7 @@ pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Conta
                                                 (c.last_name.clone().unwrap_or_else(|| "".to_string()))
                                             }
                                         } @else {
-                                            (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
-                                        }
+                                            (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
                                     }
                                 }
                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
@@ -206,5 +285,9 @@ fn css() -> String {
     .text { white-space: pre-wrap; }
     .pagination { text-align: center; margin-top: 30px; font-weight: bold; }
     .pagination a { color: #3498db; text-decoration: none; padding: 5px 10px; border: 1px solid #3498db; border-radius: 4px; }
+    .chat-summary { display: flex; flex-direction: column; }
+    .chat-summary b { font-size: 1.1em; color: #2980b9; }
+    .chat-summary .timestamp { font-size: 0.8em; margin: 2px 0; }
+    .chat-summary .snippet { font-style: italic; color: #666; font-size: 0.9em; }
     ".to_string()
 }

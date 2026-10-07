@@ -1,10 +1,11 @@
 pub mod metadata;
 pub mod templates;
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use crate::report::metadata::{load_metadata, CaseMetadata};
-use crate::report::templates::{home_page, contacts_list_page, contact_detail_page, all_messages_page};
+use crate::report::templates::{home_page, contacts_list_page, contact_detail_page, all_messages_page, chats_list_page, chat_thread_page};
 use crate::models::{Contact, Message};
 use serde_json;
 use chrono::{DateTime, Utc};
@@ -78,7 +79,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
         )
     }).collect();
 
-    // Sort newest first
+    // Sort newest first for global lists
     joined_data.sort_by(|a, b| b.0.timestamp.cmp(&a.0.timestamp));
 
     let contacts_dir = report_dir.join("contacts");
@@ -106,6 +107,37 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
 
         let detail_markup = contact_detail_page(&meta, contact, &contact_messages);
         fs::write(contacts_dir.join(contact_filename), detail_markup.into_string())?;
+    }
+
+    // Chats section
+    let chats_dir = report_dir.join("chats");
+    fs::create_dir_all(&chats_dir)?;
+
+    let mut chat_groups: HashMap<String, Vec<(Message, Option<Contact>)>> = HashMap::new();
+    for (msg, contact) in joined_data.clone() {
+        if let Some(chat_id) = msg.chat.clone() {
+            chat_groups.entry(chat_id).or_default().push((msg, contact));
+        }
+    }
+
+    let mut chat_summaries: Vec<(String, Message)> = Vec::new();
+    for (chat_id, messages) in &chat_groups {
+        if let Some((newest_msg, _)) = messages.iter().max_by_key(|(m, _)| m.timestamp) {
+            chat_summaries.push((chat_id.clone(), newest_msg.clone()));
+        }
+    }
+    chat_summaries.sort_by(|a, b| b.1.timestamp.cmp(&a.1.timestamp));
+
+    let chats_list_markup = chats_list_page(&meta, &chat_summaries);
+    fs::write(chats_dir.join("index.html"), chats_list_markup.into_string())?;
+
+    for (chat_id, messages) in &chat_groups {
+        let mut thread_messages = messages.clone();
+        // Sort oldest first for the thread
+        thread_messages.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
+        
+        let thread_markup = chat_thread_page(&meta, chat_id, &thread_messages);
+        fs::write(chats_dir.join(format!("chat_{}.html", chat_id)), thread_markup.into_string())?;
     }
 
     // All messages listing with pagination
