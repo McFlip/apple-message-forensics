@@ -1,14 +1,17 @@
 pub mod metadata;
 pub mod templates;
 
+use crate::models::{Contact, Message};
+use crate::report::metadata::{CaseMetadata, load_metadata};
+use crate::report::templates::{
+    all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
+    home_page,
+};
+use chrono::{DateTime, Utc};
+use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use crate::report::metadata::{load_metadata, CaseMetadata};
-use crate::report::templates::{home_page, contacts_list_page, contact_detail_page, all_messages_page, chats_list_page, chat_thread_page};
-use crate::models::{Contact, Message};
-use serde_json;
-use chrono::{DateTime, Utc};
 
 #[derive(serde::Deserialize)]
 struct JoinedRecord {
@@ -20,7 +23,10 @@ struct JoinedRecord {
     contact: Option<Contact>,
 }
 
-pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(
+    output_dir: PathBuf,
+    meta_path: Option<PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
 
@@ -61,23 +67,28 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
 
     let joined_json_str = fs::read_to_string(json_dir.join("joined.json"))?;
     let joined_records: Vec<JoinedRecord> = serde_json::from_str(&joined_json_str)?;
-    
-    let mut joined_data: Vec<(Message, Option<Contact>)> = joined_records.into_iter().map(|r| {
-        let timestamp = r.timestamp.as_deref().and_then(|t| {
-            DateTime::parse_from_rfc3339(t).ok().map(|dt| dt.with_timezone(&Utc))
-        });
-        
-        (
-            Message {
-                timestamp,
-                chat: r.chat,
-                sender: r.sender,
-                message: r.message,
-                attachment: r.attachment,
-            },
-            r.contact,
-        )
-    }).collect();
+
+    let mut joined_data: Vec<(Message, Option<Contact>)> = joined_records
+        .into_iter()
+        .map(|r| {
+            let timestamp = r.timestamp.as_deref().and_then(|t| {
+                DateTime::parse_from_rfc3339(t)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            });
+
+            (
+                Message {
+                    timestamp,
+                    chat: r.chat,
+                    sender: r.sender,
+                    message: r.message,
+                    attachment: r.attachment,
+                },
+                r.contact,
+            )
+        })
+        .collect();
 
     // Sort newest first for global lists
     joined_data.sort_by_key(|a| std::cmp::Reverse(a.0.timestamp));
@@ -91,10 +102,14 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
 
     // Individual contact pages
     for contact in &contacts {
-        let contact_id = contact.contact_id.as_ref().unwrap_or(&serde_json::Value::Null);
+        let contact_id = contact
+            .contact_id
+            .as_ref()
+            .unwrap_or(&serde_json::Value::Null);
         let contact_filename = format!("contact_{}.html", contact_id);
-        
-        let contact_messages: Vec<Message> = joined_data.iter()
+
+        let contact_messages: Vec<Message> = joined_data
+            .iter()
             .filter(|(_, c)| {
                 if let Some(c) = c {
                     c.contact_id == contact.contact_id
@@ -106,7 +121,10 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
             .collect();
 
         let detail_markup = contact_detail_page(&meta, contact, &contact_messages);
-        fs::write(contacts_dir.join(contact_filename), detail_markup.into_string())?;
+        fs::write(
+            contacts_dir.join(contact_filename),
+            detail_markup.into_string(),
+        )?;
     }
 
     // Chats section
@@ -129,15 +147,21 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
     chat_summaries.sort_by_key(|a| std::cmp::Reverse(a.1.timestamp));
 
     let chats_list_markup = chats_list_page(&meta, &chat_summaries);
-    fs::write(chats_dir.join("index.html"), chats_list_markup.into_string())?;
+    fs::write(
+        chats_dir.join("index.html"),
+        chats_list_markup.into_string(),
+    )?;
 
     for (chat_id, messages) in &chat_groups {
         let mut thread_messages = messages.clone();
         // Sort oldest first for the thread
         thread_messages.sort_by_key(|a| a.0.timestamp);
-        
+
         let thread_markup = chat_thread_page(&meta, chat_id, &thread_messages);
-        fs::write(chats_dir.join(format!("chat_{}.html", chat_id)), thread_markup.into_string())?;
+        fs::write(
+            chats_dir.join(format!("chat_{}.html", chat_id)),
+            thread_markup.into_string(),
+        )?;
     }
 
     // All messages listing with pagination
@@ -152,7 +176,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
         let start = (page - 1) * PAGE_SIZE;
         let end = std::cmp::min(start + PAGE_SIZE, total_messages);
         let page_messages = &joined_data[start..end];
-        
+
         let msg_markup = all_messages_page(&meta, page_messages, page, total_pages);
         let filename = if page == 1 {
             "index.html".to_string()

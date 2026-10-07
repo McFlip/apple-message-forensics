@@ -1,6 +1,6 @@
-use maud::{html, Markup};
-use crate::report::metadata::CaseMetadata;
 use crate::models::{Contact, Message};
+use crate::report::metadata::CaseMetadata;
+use maud::{Markup, html};
 
 pub fn home_page(meta: &CaseMetadata) -> Markup {
     html! {
@@ -14,7 +14,7 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
             body {
                 div class="container" {
                     h1 { (meta.report.title) }
-                    
+
                     div class="metadata-section" {
                         div class="grid" {
                             div class="col" {
@@ -39,7 +39,7 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                             }
                         }
                     }
-                    
+
                     div class="nav-section" {
                         div class="nav-links" {
                             a href="contacts/index.html" { "View Contacts List" }
@@ -68,7 +68,7 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
                 div class="container" {
                     h1 { "Contacts" }
                     a href="../index.html" { "← Back to Home" }
-                    
+
                     div class="list-container" {
                         ul {
                             @for contact in contacts {
@@ -76,7 +76,7 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
                                     a href=(format!("contact_{}.html", contact.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
                                         (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
                                         " "
-                                        (contact.last_name.clone().unwrap_or_default()) 
+                                        (contact.last_name.clone().unwrap_or_default())
                                     }
                                 }
                             }
@@ -102,12 +102,12 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                     a href="../index.html" { "← Back to Home" }
                     span { " | " }
                     a href="../contacts/index.html" { "Back to Contacts" }
-                    
+
                     div class="contact-card" {
-                        h1 { 
-                            (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string())) 
-                            " " 
-                            (contact.last_name.clone().unwrap_or_default()) 
+                        h1 {
+                            (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                            " "
+                            (contact.last_name.clone().unwrap_or_default())
                         }
                         div class="card-grid" {
                             p { "Phone: " b { (contact.phone_numbers.clone().unwrap_or_else(|| "N/A".to_string())) } }
@@ -152,7 +152,7 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
                 div class="container" {
                     h1 { "Chat Threads" }
                     a href="../index.html" { "← Back to Home" }
-                    
+
                     div class="list-container" {
                         ul {
                             @for (chat_id, last_msg) in chats {
@@ -174,7 +174,11 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
     }
 }
 
-pub fn chat_thread_page(meta: &CaseMetadata, chat_id: &str, messages: &[(Message, Option<Contact>)]) -> Markup {
+pub fn chat_thread_page(
+    meta: &CaseMetadata,
+    chat_id: &str,
+    messages: &[(Message, Option<Contact>)],
+) -> Markup {
     html! {
         (maud::DOCTYPE)
         html {
@@ -189,7 +193,7 @@ pub fn chat_thread_page(meta: &CaseMetadata, chat_id: &str, messages: &[(Message
                     a href="../index.html" { "← Back to Home" }
                     " | "
                     a href="../chats/index.html" { "Back to Chats" }
-                    
+
                     div class="message-list" {
                         @for (msg, contact) in messages {
                             div class="message-item" {
@@ -217,7 +221,12 @@ pub fn chat_thread_page(meta: &CaseMetadata, chat_id: &str, messages: &[(Message
     }
 }
 
-pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Contact>)], current_page: usize, total_pages: usize) -> Markup {
+pub fn all_messages_page(
+    meta: &CaseMetadata,
+    messages: &[(Message, Option<Contact>)],
+    current_page: usize,
+    total_pages: usize,
+) -> Markup {
     html! {
         (maud::DOCTYPE)
         html {
@@ -230,7 +239,7 @@ pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Conta
                 div class="container" {
                     h1 { "All Messages" }
                     a href="../index.html" { "← Back to Home" }
-                    
+
                     div class="message-list" {
                         @for (msg, contact) in messages {
                             div class="message-item" {

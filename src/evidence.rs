@@ -1,3 +1,4 @@
+use crate::logger;
 use hex;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
@@ -9,7 +10,6 @@ use std::{
     thread,
     time::Duration,
 };
-use crate::logger;
 
 const MAX_COPY_ATTEMPTS: usize = 3;
 const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
