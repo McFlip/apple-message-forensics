@@ -115,6 +115,8 @@ fn main() {
                 vault_src.as_path().display(),
                 vault_path.as_path().display()
             ));
+            apple_message_forensics::archive_evidence(vault_src.as_path(), vault_path.as_path())
+                .expect("evidence archive to be created");
             logger::info_fmt(format_args!(
                 "evidence archive created at {}",
                 vault_path.as_path().display()
