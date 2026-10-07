@@ -201,10 +201,7 @@ fn get_all_addresses_combines_contacts_from_all_manifest_address_books() {
     assert_eq!(actual_json, expected_json);
 }
 
-fn create_address_book(
-    address_book_path: &Path,
-    records: &[AddressBookRecord; 3],
-) {
+fn create_address_book(address_book_path: &Path, records: &[AddressBookRecord; 3]) {
     fs::create_dir_all(
         address_book_path
             .parent()

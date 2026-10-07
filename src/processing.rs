@@ -105,6 +105,38 @@ pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, Stri
         .collect()
 }
 
+pub fn unmarshal_msg_contact_tuples_from_json(
+    json_str: &str,
+) -> Result<Vec<MsgContactTuple>, serde_json::Error> {
+    #[derive(serde::Deserialize)]
+    struct SerializedJoinedMessage {
+        timestamp: Option<DateTime<Utc>>,
+        chat: Option<String>,
+        sender: Option<String>,
+        message: Option<String>,
+        attachment: Option<String>,
+        contact: Option<Contact>,
+    }
+
+    let joined_messages: Vec<SerializedJoinedMessage> = serde_json::from_str(json_str)?;
+
+    Ok(joined_messages
+        .into_iter()
+        .map(|joined| {
+            (
+                Message {
+                    timestamp: joined.timestamp,
+                    chat: joined.chat,
+                    sender: joined.sender,
+                    message: joined.message,
+                    attachment: joined.attachment,
+                },
+                joined.contact,
+            )
+        })
+        .collect())
+}
+
 pub fn join_messages_to_contacts(
     messages: &[Message],
     addresses: &ContactLookup,

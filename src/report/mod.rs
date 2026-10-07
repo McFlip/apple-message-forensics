@@ -1,31 +1,22 @@
 pub mod metadata;
 pub mod templates;
 
-use crate::models::{Contact, Message};
+use crate::models::{Contact, Message, MsgContactTuple};
+use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
 use crate::report::templates::{
     all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
     home_page,
 };
-use chrono::{DateTime, Utc};
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(serde::Deserialize)]
-struct JoinedRecord {
-    timestamp: Option<String>,
-    chat: Option<String>,
-    sender: Option<String>,
-    message: Option<String>,
-    attachment: Option<String>,
-    contact: Option<Contact>,
-}
-
 pub fn generate(
     output_dir: PathBuf,
     meta_path: Option<PathBuf>,
+    filtered: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
@@ -65,30 +56,14 @@ pub fn generate(
     let contacts_json = fs::read_to_string(json_dir.join("addresses.json"))?;
     let contacts: Vec<Contact> = serde_json::from_str(&contacts_json)?;
 
-    let joined_json_str = fs::read_to_string(json_dir.join("joined.json"))?;
-    let joined_records: Vec<JoinedRecord> = serde_json::from_str(&joined_json_str)?;
-
-    let mut joined_data: Vec<(Message, Option<Contact>)> = joined_records
-        .into_iter()
-        .map(|r| {
-            let timestamp = r.timestamp.as_deref().and_then(|t| {
-                DateTime::parse_from_rfc3339(t)
-                    .ok()
-                    .map(|dt| dt.with_timezone(&Utc))
-            });
-
-            (
-                Message {
-                    timestamp,
-                    chat: r.chat,
-                    sender: r.sender,
-                    message: r.message,
-                    attachment: r.attachment,
-                },
-                r.contact,
-            )
-        })
-        .collect();
+    let joined_filename = if filtered {
+        "filtered.json"
+    } else {
+        "joined.json"
+    };
+    let joined_json_str = fs::read_to_string(json_dir.join(joined_filename))?;
+    let mut joined_data: Vec<MsgContactTuple> =
+        unmarshal_msg_contact_tuples_from_json(&joined_json_str)?;
 
     // Sort newest first for global lists
     joined_data.sort_by_key(|a| std::cmp::Reverse(a.0.timestamp));
@@ -187,4 +162,71 @@ pub fn generate(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate;
+    use serde_json::json;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn generate_uses_filtered_messages_when_filtering_was_applied() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(
+            json_dir.join("joined.json"),
+            json!([{
+                "timestamp": "2024-01-01T00:00:00Z",
+                "message": "unfiltered message",
+                "contact": null
+            }])
+            .to_string(),
+        )
+        .expect("write joined messages");
+        fs::write(
+            json_dir.join("filtered.json"),
+            json!([{
+                "timestamp": "2024-01-02T00:00:00Z",
+                "message": "filtered message",
+                "contact": null
+            }])
+            .to_string(),
+        )
+        .expect("write filtered messages");
+
+        generate(temp_dir.path().to_path_buf(), None, true).expect("generate filtered report");
+
+        let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
+            .expect("read generated message report");
+        assert!(report.contains("filtered message"));
+        assert!(!report.contains("unfiltered message"));
+    }
+
+    #[test]
+    fn generate_uses_joined_messages_when_filtering_was_not_applied() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(
+            json_dir.join("joined.json"),
+            json!([{
+                "timestamp": "2024-01-01T00:00:00Z",
+                "message": "unfiltered message",
+                "contact": null
+            }])
+            .to_string(),
+        )
+        .expect("write joined messages");
+
+        generate(temp_dir.path().to_path_buf(), None, false).expect("generate report");
+
+        let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
+            .expect("read generated message report");
+        assert!(report.contains("unfiltered message"));
+    }
 }
