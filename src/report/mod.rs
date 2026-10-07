@@ -80,7 +80,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
     }).collect();
 
     // Sort newest first for global lists
-    joined_data.sort_by(|a, b| b.0.timestamp.cmp(&a.0.timestamp));
+    joined_data.sort_by_key(|a| std::cmp::Reverse(a.0.timestamp));
 
     let contacts_dir = report_dir.join("contacts");
     fs::create_dir_all(&contacts_dir)?;
@@ -126,7 +126,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
             chat_summaries.push((chat_id.clone(), newest_msg.clone()));
         }
     }
-    chat_summaries.sort_by(|a, b| b.1.timestamp.cmp(&a.1.timestamp));
+    chat_summaries.sort_by_key(|a| std::cmp::Reverse(a.1.timestamp));
 
     let chats_list_markup = chats_list_page(&meta, &chat_summaries);
     fs::write(chats_dir.join("index.html"), chats_list_markup.into_string())?;
@@ -134,7 +134,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
     for (chat_id, messages) in &chat_groups {
         let mut thread_messages = messages.clone();
         // Sort oldest first for the thread
-        thread_messages.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
+        thread_messages.sort_by_key(|a| a.0.timestamp);
         
         let thread_markup = chat_thread_page(&meta, chat_id, &thread_messages);
         fs::write(chats_dir.join(format!("chat_{}.html", chat_id)), thread_markup.into_string())?;
@@ -146,7 +146,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
 
     const PAGE_SIZE: usize = 50;
     let total_messages = joined_data.len();
-    let total_pages = (total_messages + PAGE_SIZE - 1) / PAGE_SIZE;
+    let total_pages = total_messages.div_ceil(PAGE_SIZE);
 
     for page in 1..=total_pages {
         let start = (page - 1) * PAGE_SIZE;

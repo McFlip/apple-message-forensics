@@ -23,12 +23,11 @@ fn write_log(level: &str, message: &str) {
     
     print!("{}", formatted);
 
-    if let Ok(lock) = LOG_FILE.lock() {
-        if let Some(path) = &*lock {
-            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
-                let _ = file.write_all(formatted.as_bytes());
-            }
-        }
+    if let Ok(lock) = LOG_FILE.lock()
+        && let Some(path) = &*lock
+        && let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path)
+    {
+        let _ = file.write_all(formatted.as_bytes());
     }
 }
 

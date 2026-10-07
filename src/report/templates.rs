@@ -76,7 +76,7 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
                                     a href=(format!("contact_{}.html", contact.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
                                         (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
                                         " "
-                                        (contact.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                        (contact.last_name.clone().unwrap_or_default()) 
                                     }
                                 }
                             }
@@ -107,7 +107,7 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                         h1 { 
                             (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string())) 
                             " " 
-                            (contact.last_name.clone().unwrap_or_else(|| "".to_string())) 
+                            (contact.last_name.clone().unwrap_or_default()) 
                         }
                         div class="card-grid" {
                             p { "Phone: " b { (contact.phone_numbers.clone().unwrap_or_else(|| "N/A".to_string())) } }
@@ -122,7 +122,7 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                         @for msg in messages {
                             div class="message-item" {
                                 div class="msg-header" {
-                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
                                     @if let Some(chat_id) = &msg.chat {
                                         span class="chat-link" {
                                             a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
@@ -161,7 +161,7 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
                                         a href=(format!("chat_{}.html", chat_id)) {
                                             b { (chat_id) }
                                         }
-                                        span class="timestamp" { (last_msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                        span class="timestamp" { (last_msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
                                         div class="snippet" { (last_msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                                     }
                                 }
@@ -194,7 +194,7 @@ pub fn chat_thread_page(meta: &CaseMetadata, chat_id: &str, messages: &[(Message
                         @for (msg, contact) in messages {
                             div class="message-item" {
                                 div class="msg-header" {
-                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
                                     span class="sender" {
                                         @if let Some(c) = contact {
                                             a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
@@ -235,7 +235,7 @@ pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Conta
                         @for (msg, contact) in messages {
                             div class="message-item" {
                                 div class="msg-header" {
-                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
                                     span class="sender" {
                                         @if let Some(c) = contact {
                                             a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {

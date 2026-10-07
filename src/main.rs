@@ -2,7 +2,7 @@ use apple_message_forensics::check_source;
 use apple_message_forensics::setup_output_dir;
 use apple_message_forensics::logger;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 #[derive(Parser, Debug)]
@@ -38,7 +38,7 @@ fn default_home_dir() -> PathBuf {
     }
 }
 
-fn chat_db_path_from_src_dir(src_dir: &PathBuf) -> PathBuf {
+fn chat_db_path_from_src_dir(src_dir: &Path) -> PathBuf {
     src_dir.join("chat.db")
 }
 
@@ -166,7 +166,7 @@ fn main() {
             logger::info("Marshaling joined messages and contacts to JSON...");
             let joined_json = apple_message_forensics::marshal_msg_contact_tuple_to_json(&joined);
             let joined_path = json_dir.join("joined.json");
-            std::fs::write(&joined_path, &joined_json.to_string())
+            std::fs::write(&joined_path, joined_json.to_string())
                 .expect("to write joined messages and contacts to JSON file");
             logger::info_fmt(format_args!(
                 "Marshaled joined messages and contacts to JSON file at {}",

@@ -9,6 +9,17 @@ const ADDRESS_BOOK_PATHS: [&str; 2] = [
     "Library/Application Support/AddressBook/AddressBook-v22.abcddb",
     "Library/Application Support/AddressBook/Sources/E35DB509-AB16-4698-BE02-B7883112E9B0/AddressBook-v22.abcddb",
 ];
+type AddressBookRecord = (
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    &'static str,
+    Option<&'static str>,
+    Option<&'static str>,
+    Option<&'static str>,
+    &'static str,
+    &'static str,
+);
 
 #[test]
 fn get_all_addresses_combines_contacts_from_all_manifest_address_books() {
@@ -192,17 +203,7 @@ fn get_all_addresses_combines_contacts_from_all_manifest_address_books() {
 
 fn create_address_book(
     address_book_path: &Path,
-    records: &[(
-        &str,
-        &str,
-        Option<&str>,
-        &str,
-        Option<&str>,
-        Option<&str>,
-        Option<&str>,
-        &str,
-        &str,
-    ); 3],
+    records: &[AddressBookRecord; 3],
 ) {
     fs::create_dir_all(
         address_book_path
