@@ -1,6 +1,5 @@
 use rusqlite::Connection;
 use std::path::Path;
-use crate::models::Contact;
 
 pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
     #[derive(serde::Serialize)]
@@ -87,9 +86,12 @@ fn get_addresses_from_addressbook(address_book: &Path) -> Result<String, String>
         .map_err(|err| format!("cannot serialize addresses as JSON: {}", err))
 }
 
-pub fn get_all_addresses(manifest_path: &std::path::Path, working_dir: &std::path::Path) -> Result<String, String> {
-    use std::fs;
+pub fn get_all_addresses(
+    manifest_path: &std::path::Path,
+    working_dir: &std::path::Path,
+) -> Result<String, String> {
     use crate::evidence::parse_hash_manifest_line;
+    use std::fs;
 
     let manifest_contents = fs::read_to_string(manifest_path).map_err(|err| {
         format!(

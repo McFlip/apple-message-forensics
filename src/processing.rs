@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::models::{Contact, Message, ContactLookup, EmailOrPhone, MsgContactTuple};
+use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
@@ -11,9 +11,12 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
         let contact_object = contact
             .as_object()
             .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
-        
+
         let contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
-            format!("cannot deserialize address at index {}: {}", contact_index, err)
+            format!(
+                "cannot deserialize address at index {}: {}",
+                contact_index, err
+            )
         })?;
 
         for field in ["email_addresses", "phone_numbers"] {

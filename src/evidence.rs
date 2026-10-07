@@ -1,10 +1,8 @@
-use chrono::{DateTime, Utc};
 use hex;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    collections::HashMap,
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
