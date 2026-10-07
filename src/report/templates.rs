@@ -1,5 +1,6 @@
 use maud::{html, Markup};
 use crate::report::metadata::CaseMetadata;
+use crate::models::{Contact, Message};
 
 pub fn home_page(meta: &CaseMetadata) -> Markup {
     html! {
@@ -39,8 +40,85 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                         }
                     }
                     
-                    div class="content" {
-                        p { "Report content will be added here in future versions." }
+                    div class="nav-section" {
+                        a href="contacts/index.html" { "View Contacts List" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { "Contacts - " (meta.report.title) }
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    h1 { "Contacts" }
+                    a href="../index.html" { "← Back to Home" }
+                    
+                    div class="list-container" {
+                        ul {
+                            @for contact in contacts {
+                                li {
+                                    a href=(format!("contact_{}.html", contact.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                        (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                        " "
+                                        (contact.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[Message]) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { (contact.first_name.clone().unwrap_or_else(|| "Contact".to_string())) " - " (meta.report.title) }
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    a href="../index.html" { "← Back to Home" }
+                    span { " | " }
+                    a href="../contacts/index.html" { "Back to Contacts" }
+                    
+                    div class="contact-card" {
+                        h1 { 
+                            (contact.first_name.clone().unwrap_or_else(|| "Unknown".to_string())) 
+                            " " 
+                            (contact.last_name.clone().unwrap_or_else(|| "".to_string())) 
+                        }
+                        div class="card-grid" {
+                            p { "Phone: " b { (contact.phone_numbers.clone().unwrap_or_else(|| "N/A".to_string())) } }
+                            p { "Email: " b { (contact.email_addresses.clone().unwrap_or_else(|| "N/A".to_string())) } }
+                            p { "Organization: " b { (contact.organization.clone().unwrap_or_else(|| "N/A".to_string())) } }
+                            p { "Job Title: " b { (contact.job_title.clone().unwrap_or_else(|| "N/A".to_string())) } }
+                        }
+                    }
+
+                    h2 { "Messages" }
+                    div class="message-list" {
+                        @for msg in messages {
+                            div class="message-item" {
+                                span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                            }
+                        }
                     }
                 }
             }
@@ -57,6 +135,17 @@ fn css() -> String {
     .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
     .col h2 { font-size: 1.2em; color: #555; border-bottom: 1px solid #ccc; }
     .col p { margin: 5px 0; font-size: 0.9em; }
-    .content { margin-top: 20px; font-style: italic; color: #666; }
+    .nav-section { text-align: center; margin-top: 20px; }
+    .nav-section a { font-size: 1.2em; color: #3498db; text-decoration: none; font-weight: bold; }
+    .list-container ul { list-style: none; padding: 0; }
+    .list-container li { padding: 10px; border-bottom: 1px solid #eee; }
+    .list-container a { text-decoration: none; color: #2980b9; font-size: 1.1em; }
+    .contact-card { background: #eef2f7; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 5px solid #3498db; }
+    .contact-card h1 { text-align: left; border: none; margin-top: 0; }
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .message-list { display: flex; flex-direction: column; gap: 10px; }
+    .message-item { padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
+    .timestamp { font-size: 0.8em; color: #888; display: block; margin-bottom: 5px; }
+    .text { white-space: pre-wrap; }
     ".to_string()
 }
