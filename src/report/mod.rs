@@ -4,7 +4,7 @@ pub mod templates;
 use std::fs;
 use std::path::PathBuf;
 use crate::report::metadata::{load_metadata, CaseMetadata};
-use crate::report::templates::{home_page, contacts_list_page, contact_detail_page};
+use crate::report::templates::{home_page, contacts_list_page, contact_detail_page, all_messages_page};
 use crate::models::{Contact, Message};
 use serde_json;
 use chrono::{DateTime, Utc};
@@ -61,7 +61,7 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
     let joined_json_str = fs::read_to_string(json_dir.join("joined.json"))?;
     let joined_records: Vec<JoinedRecord> = serde_json::from_str(&joined_json_str)?;
     
-    let joined_data: Vec<(Message, Option<Contact>)> = joined_records.into_iter().map(|r| {
+    let mut joined_data: Vec<(Message, Option<Contact>)> = joined_records.into_iter().map(|r| {
         let timestamp = r.timestamp.as_deref().and_then(|t| {
             DateTime::parse_from_rfc3339(t).ok().map(|dt| dt.with_timezone(&Utc))
         });
@@ -77,6 +77,9 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
             r.contact,
         )
     }).collect();
+
+    // Sort newest first
+    joined_data.sort_by(|a, b| b.0.timestamp.cmp(&a.0.timestamp));
 
     let contacts_dir = report_dir.join("contacts");
     fs::create_dir_all(&contacts_dir)?;
@@ -103,6 +106,28 @@ pub fn generate(output_dir: PathBuf, meta_path: Option<PathBuf>) -> Result<(), B
 
         let detail_markup = contact_detail_page(&meta, contact, &contact_messages);
         fs::write(contacts_dir.join(contact_filename), detail_markup.into_string())?;
+    }
+
+    // All messages listing with pagination
+    let messages_dir = report_dir.join("messages");
+    fs::create_dir_all(&messages_dir)?;
+
+    const PAGE_SIZE: usize = 50;
+    let total_messages = joined_data.len();
+    let total_pages = (total_messages + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    for page in 1..=total_pages {
+        let start = (page - 1) * PAGE_SIZE;
+        let end = std::cmp::min(start + PAGE_SIZE, total_messages);
+        let page_messages = &joined_data[start..end];
+        
+        let msg_markup = all_messages_page(&meta, page_messages, page, total_pages);
+        let filename = if page == 1 {
+            "index.html".to_string()
+        } else {
+            format!("page_{}.html", page)
+        };
+        fs::write(messages_dir.join(filename), msg_markup.into_string())?;
     }
 
     Ok(())

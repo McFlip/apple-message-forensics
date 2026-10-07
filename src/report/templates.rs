@@ -41,7 +41,11 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                     }
                     
                     div class="nav-section" {
-                        a href="contacts/index.html" { "View Contacts List" }
+                        div class="nav-links" {
+                            a href="contacts/index.html" { "View Contacts List" }
+                            " | "
+                            a href="messages/index.html" { "View All Messages" }
+                        }
                     }
                 }
             }
@@ -126,6 +130,57 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
     }
 }
 
+pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Contact>)], current_page: usize, total_pages: usize) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { "All Messages - " (meta.report.title) }
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    h1 { "All Messages" }
+                    a href="../index.html" { "← Back to Home" }
+                    
+                    div class="message-list" {
+                        @for (msg, contact) in messages {
+                            div class="message-item" {
+                                div class="msg-header" {
+                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="sender" {
+                                        @if let Some(c) = contact {
+                                            a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                " "
+                                                (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                            }
+                                        } @else {
+                                            (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                        }
+                                    }
+                                }
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                            }
+                        }
+                    }
+
+                    div class="pagination" {
+                        @if current_page > 1 {
+                            a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                        }
+                        span { " Page " (current_page) " of " (total_pages) " " }
+                        @if current_page < total_pages {
+                            a href=(format!("page_{}.html", current_page + 1)) { "Next" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn css() -> String {
     "
     body { font-family: sans-serif; line-height: 1.6; color: #333; max-width: 1000px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
@@ -136,7 +191,7 @@ fn css() -> String {
     .col h2 { font-size: 1.2em; color: #555; border-bottom: 1px solid #ccc; }
     .col p { margin: 5px 0; font-size: 0.9em; }
     .nav-section { text-align: center; margin-top: 20px; }
-    .nav-section a { font-size: 1.2em; color: #3498db; text-decoration: none; font-weight: bold; }
+    .nav-links a { font-size: 1.2em; color: #3498db; text-decoration: none; font-weight: bold; }
     .list-container ul { list-style: none; padding: 0; }
     .list-container li { padding: 10px; border-bottom: 1px solid #eee; }
     .list-container a { text-decoration: none; color: #2980b9; font-size: 1.1em; }
@@ -145,7 +200,11 @@ fn css() -> String {
     .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .message-list { display: flex; flex-direction: column; gap: 10px; }
     .message-item { padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
-    .timestamp { font-size: 0.8em; color: #888; display: block; margin-bottom: 5px; }
+    .msg-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85em; }
+    .timestamp { color: #888; }
+    .sender a { color: #2980b9; text-decoration: none; font-weight: bold; }
     .text { white-space: pre-wrap; }
+    .pagination { text-align: center; margin-top: 30px; font-weight: bold; }
+    .pagination a { color: #3498db; text-decoration: none; padding: 5px 10px; border: 1px solid #3498db; border-radius: 4px; }
     ".to_string()
 }
