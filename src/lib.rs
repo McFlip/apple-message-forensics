@@ -872,13 +872,30 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
         .map_err(|err| format!("cannot serialize messages as JSON: {}", err))
 }
 
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Contact {
+    pub contact_id: Option<serde_json::Value>,
+    pub contact_unique_id: Option<String>,
+    pub email_addresses: Option<String>,
+    pub first_name: Option<String>,
+    pub job_title: Option<String>,
+    pub last_name: Option<String>,
+    pub middle_name: Option<String>,
+    pub nickname: Option<String>,
+    pub organization: Option<String>,
+    pub phone_numbers: Option<String>,
+    pub record_type: Option<serde_json::Value>,
+}
+
 type EmailOrPhone = String;
+pub type ContactLookup = HashMap<EmailOrPhone, Contact>;
+
 /// Parses the addresses JSON to create a lookup of emails and phone numbers to contacts
 /// # Arguments
 /// * `json_str` - The JSON string containing the addresses data.
 /// # Returns
-/// * `Ok(HashMap<EmailOrPhone, String>)` - A map where keys are emails/phone numbers and the values are the JSON string of the contact.
-pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<EmailOrPhone, String>, String> {
+/// * `Ok(ContactLookup)` - A map where keys are emails/phone numbers and the values are the Contact struct.
+pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
@@ -887,11 +904,9 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<EmailOrPh
         let contact_object = contact
             .as_object()
             .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
-        let contact_json = serde_json::to_string(contact).map_err(|err| {
-            format!(
-                "cannot serialize address at index {}: {}",
-                contact_index, err
-            )
+        
+        let contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
+            format!("cannot deserialize address at index {}: {}", contact_index, err)
         })?;
 
         for field in ["email_addresses", "phone_numbers"] {
@@ -928,7 +943,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<EmailOrPh
                     }
                 };
                 if !key.is_empty() {
-                    addresses.insert(key, contact_json.clone());
+                    addresses.insert(key, contact_struct.clone());
                 }
             }
         }
@@ -939,7 +954,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<HashMap<EmailOrPh
 
 #[cfg(test)]
 mod unmarshal_addresses_tests {
-    use super::unmarshal_addresses_from_json;
+    use super::{unmarshal_addresses_from_json, Contact};
 
     #[test]
     fn maps_fixture_emails_and_phone_numbers_to_contacts() {
@@ -949,7 +964,7 @@ mod unmarshal_addresses_tests {
             serde_json::from_str(addresses_json).expect("parse addresses fixture");
         let phone_email: serde_json::Value =
             serde_json::from_str(phone_email_json).expect("parse phone and email fixture");
-
+        
         let actual =
             unmarshal_addresses_from_json(addresses_json).expect("parse addresses fixture data");
         assert_eq!(actual.len(), 19);
@@ -958,8 +973,8 @@ mod unmarshal_addresses_tests {
             let email = phone_email["emails"][email_index]
                 .as_str()
                 .expect("email fixture entry should be a string");
-            let expected_contact =
-                serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
+            let expected_contact: Contact = serde_json::from_value(addresses[contact_index].clone())
+                .expect("serialize contact");
             assert_eq!(actual.get(email), Some(&expected_contact));
         }
 
@@ -976,11 +991,12 @@ mod unmarshal_addresses_tests {
             } else {
                 format!("+1{}", digits)
             };
-            let expected_contact =
-                serde_json::to_string(&addresses[contact_index]).expect("serialize contact");
+            let expected_contact: Contact = serde_json::from_value(addresses[contact_index].clone())
+                .expect("serialize contact");
             assert_eq!(actual.get(&normalized_phone), Some(&expected_contact));
         }
     }
+
 }
 
 #[derive(Clone)]
@@ -1127,16 +1143,16 @@ mod unmarshal_messages_tests {
     }
 }
 
-pub type MsgContactTuple = (Message, Option<String>);
+pub type MsgContactTuple = (Message, Option<Contact>);
 /// Joins messages with their corresponding contacts based on the sender's email or phone number.
 /// # Arguments
 /// * `messages` - A slice of Message structs to be joined with contacts.
-/// * `addresses` - A HashMap where keys are emails/phone numbers and values are the JSON string of the contact.
+/// * `addresses` - A ContactLookup where keys are emails/phone numbers and values are Contact structs.
 /// # Returns
-/// * `Vec<(Message, Option<String>)>` - A vector of tuples where each tuple contains a Message and an optional contact JSON string. If a contact is found for the message's sender, the second element of the tuple will be `Some(contact_json)`, otherwise it will be `None`.
+/// * `Vec<(Message, Option<Contact>)>` - A vector of tuples where each tuple contains a Message and an optional Contact struct. If a contact is found for the message's sender, the second element of the tuple will be `Some(contact)`, otherwise it will be `None`.
 pub fn join_messages_to_contacts(
     messages: &[Message],
-    addresses: &HashMap<String, String>,
+    addresses: &ContactLookup,
 ) -> Vec<MsgContactTuple> {
     messages
         .iter()
@@ -1159,15 +1175,15 @@ pub fn join_messages_to_contacts(
                     }
                 }
             });
-            let contact_json = sender_key.and_then(|key| addresses.get(&key).cloned());
-            (message, contact_json)
+            let contact = sender_key.and_then(|key| addresses.get(&key).cloned());
+            (message, contact)
         })
         .collect()
 }
 
 #[cfg(test)]
 mod join_messages_tests {
-    use super::{Message, join_messages_to_contacts};
+    use super::{Message, join_messages_to_contacts, Contact};
     use chrono::{DateTime, Utc};
     use std::collections::HashMap;
 
@@ -1202,15 +1218,39 @@ mod join_messages_tests {
             },
         ];
         let addresses = HashMap::from([
-            ("alice@example.com".to_string(), "alice contact".to_string()),
-            ("+15551234567".to_string(), "phone contact".to_string()),
+            ("alice@example.com".to_string(), Contact {
+                first_name: Some("Alice".to_string()),
+                contact_id: None,
+                contact_unique_id: None,
+                email_addresses: None,
+                job_title: None,
+                last_name: None,
+                middle_name: None,
+                nickname: None,
+                organization: None,
+                phone_numbers: None,
+                record_type: None,
+            }),
+            ("+15551234567".to_string(), Contact {
+                first_name: Some("Phone Contact".to_string()),
+                contact_id: None,
+                contact_unique_id: None,
+                email_addresses: None,
+                job_title: None,
+                last_name: None,
+                middle_name: None,
+                nickname: None,
+                organization: None,
+                phone_numbers: None,
+                record_type: None,
+            }),
         ]);
 
         let joined = join_messages_to_contacts(&messages, &addresses);
 
         assert_eq!(joined.len(), 3);
-        assert_eq!(joined[0].1.as_deref(), Some("alice contact"));
-        assert_eq!(joined[1].1.as_deref(), Some("phone contact"));
+        assert_eq!(joined[0].1.as_ref().and_then(|c| c.first_name.as_deref()), Some("Alice"));
+        assert_eq!(joined[1].1.as_ref().and_then(|c| c.first_name.as_deref()), Some("Phone Contact"));
         assert_eq!(joined[2].1, None);
         assert_eq!(joined[2].0.message.as_deref(), Some("Unmatched message"));
     }
@@ -1244,7 +1284,7 @@ pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_js
 
 #[cfg(test)]
 mod marshal_msg_contact_tuple_tests {
-    use super::{Message, MsgContactTuple, marshal_msg_contact_tuple_to_json};
+    use super::{Message, MsgContactTuple, marshal_msg_contact_tuple_to_json, Contact};
     use chrono::{DateTime, Utc};
     use serde_json::json;
 
@@ -1264,7 +1304,19 @@ mod marshal_msg_contact_tuple_tests {
                     message: Some("Hello".to_string()),
                     attachment: None,
                 },
-                Some(r#"{"first_name":"Alice"}"#.to_string()),
+                Some(Contact {
+                    first_name: Some("Alice".to_string()),
+                    contact_id: None,
+                    contact_unique_id: None,
+                    email_addresses: None,
+                    job_title: None,
+                    last_name: None,
+                    middle_name: None,
+                    nickname: None,
+                    organization: None,
+                    phone_numbers: None,
+                    record_type: None,
+                }),
             ),
             (
                 Message {
@@ -1278,26 +1330,37 @@ mod marshal_msg_contact_tuple_tests {
             ),
         ];
 
-        assert_eq!(
-            marshal_msg_contact_tuple_to_json(&joined),
-            json!([
-                {
-                    "timestamp": "2024-10-02T11:28:51Z",
-                    "chat": "chat333086607288203406",
-                    "sender": "+15551234567",
-                    "message": "Hello",
-                    "attachment": null,
-                    "contact": r#"{"first_name":"Alice"}"#
-                },
-                {
-                    "timestamp": "2024-10-02T11:28:51Z",
-                    "chat": null,
-                    "sender": "unknown@example.com",
-                    "message": "No matching contact",
-                    "attachment": "image.png",
-                    "contact": null
+        let result = marshal_msg_contact_tuple_to_json(&joined);
+        let expected = json!([
+            {
+                "timestamp": "2024-10-02T11:28:51Z",
+                "chat": "chat333086607288203406",
+                "sender": "+15551234567",
+                "message": "Hello",
+                "attachment": null,
+                "contact": {
+                    "first_name": "Alice",
+                    "contact_id": null,
+                    "contact_unique_id": null,
+                    "email_addresses": null,
+                    "job_title": null,
+                    "last_name": null,
+                    "middle_name": null,
+                    "nickname": null,
+                    "organization": null,
+                    "phone_numbers": null,
+                    "record_type": null
                 }
-            ])
-        );
+            },
+            {
+                "timestamp": "2024-10-02T11:28:51Z",
+                "chat": null,
+                "sender": "unknown@example.com",
+                "message": "No matching contact",
+                "attachment": "image.png",
+                "contact": null
+            }
+        ]);
+        assert_eq!(result, expected);
     }
 }
