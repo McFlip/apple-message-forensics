@@ -3,6 +3,7 @@ pub mod evidence;
 pub mod logger;
 pub mod models;
 pub mod processing;
+pub mod report;
 
 pub use db::*;
 pub use evidence::*;

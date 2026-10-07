@@ -1,0 +1,20 @@
+case:
+  name: "Acme Corp Investigation"
+  number: "CASE-2026-0042"
+  requestor: "Jane Smith"
+  notes: |
+    Forensic examination of the provided iMessage database.
+    Analysis limited to messages and attachments present in the acquired database.
+
+analyst:
+  name: "John Doe"
+  organization: "Example Digital Forensics"
+  contact: "john.doe@example.com"
+
+custodian:
+  name: "Jane Smith"
+  device_name: "Jane's iPhone serial # abcd123"
+
+report:
+  title: "iMessage Forensic Examination Report"
+  date: "2026-10-02"
