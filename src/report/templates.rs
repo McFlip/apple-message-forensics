@@ -121,7 +121,14 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                     div class="message-list" {
                         @for msg in messages {
                             div class="message-item" {
-                                span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                div class="msg-header" {
+                                    span class="timestamp" { (msg.timestamp.clone().map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    @if let Some(chat_id) = &msg.chat {
+                                        span class="chat-link" {
+                                            a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                        }
+                                    }
+                                }
                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                             }
                         }
@@ -239,6 +246,11 @@ pub fn all_messages_page(meta: &CaseMetadata, messages: &[(Message, Option<Conta
                                         } @else {
                                             (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
                                     }
+                                    @if let Some(chat_id) = &msg.chat {
+                                        span class="chat-link" {
+                                            a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                        }
+                                    }
                                 }
                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                             }
@@ -282,6 +294,9 @@ fn css() -> String {
     .msg-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85em; }
     .timestamp { color: #888; }
     .sender a { color: #2980b9; text-decoration: none; font-weight: bold; }
+    .chat-link { font-size: 0.8em; color: #7f8c8d; margin-left: 10px; }
+    .chat-link a { color: #7f8c8d; text-decoration: none; }
+    .chat-link a:hover { text-decoration: underline; }
     .text { white-space: pre-wrap; }
     .pagination { text-align: center; margin-top: 30px; font-weight: bold; }
     .pagination a { color: #3498db; text-decoration: none; padding: 5px 10px; border: 1px solid #3498db; border-radius: 4px; }
