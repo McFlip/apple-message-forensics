@@ -45,7 +45,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
                         .chars()
                         .filter(char::is_ascii_digit)
                         .collect::<String>();
-                    match digits.chars().nth(0) {
+                    match digits.chars().next() {
                         Some('1') => format!("+{}", digits),
                         Some('+') => digits,
                         Some(_) => format!("+1{}", digits),

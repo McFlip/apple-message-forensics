@@ -24,8 +24,8 @@ fn write_log(level: &str, message: &str) {
     print!("{}", formatted);
 
     if let Ok(lock) = LOG_FILE.lock() {
-        if let Some(ref path) = *lock {
-            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        if let Some(path) = &*lock {
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
                 let _ = file.write_all(formatted.as_bytes());
             }
         }

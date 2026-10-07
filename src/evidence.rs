@@ -516,7 +516,7 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
         )
     })?;
 
-    set_read_only(&archive_path).expect("setting vault ZIP to read-only");
+    set_read_only(archive_path).expect("setting vault ZIP to read-only");
 
     Ok(())
 }
