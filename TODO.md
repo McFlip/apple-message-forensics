@@ -7,7 +7,7 @@
 
 ## 📊 Report Enhancements
 ### Filtering Logic
-- [ ] Date Range Filtering: Implement `--start` and `--end` flags to filter messages in the generated HTML report.
+- [x] Date Range Filtering: Implement `--start` and `--end` flags to filter messages in the generated HTML report.
 - [ ] Contact Filtering: Implement `--filter-contacts` (comma-separated IDs) to limit the report to specific individuals.
 
 ### Report Content
@@ -17,15 +17,11 @@
     - [ ] Display active filter settings used for the current report.
     - [ ] Add basic stats: Total messages, earliest message date, and latest message date.
     - [ ] Implement "Top Talkers" summary.
-- [ ] Navigation & Sorting:
-    - [ ] Add Contacts list sorted alphabetically.
-    - [ ] Add Contacts list sorted by most recent message.
-    - [ ] Add Chats list sorted alphabetically.
 
 ## ⚙️ CLI & Core
-- [ ] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
+- [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
 - [ ] Report Versioning: Implement the timestamped subfolder logic (`yyyy-mm-dd-HH-mm-ss`) for the `report` subcommand to prevent overwriting previous reports.
 
 ## 🧪 Verification
 - [ ] End-to-End Testing: Verify the full flow: `collect` $\rightarrow$ `report` (with filters) $\rightarrow$ `deliver`.
-- [ ] Hash Validation: Ensure the generated hash files are compatible with `sha256sum -c`.
+- [x] Hash Validation: Ensure the generated hash files are compatible with `sha256sum -c`.
