@@ -1,5 +1,18 @@
 # Project TODO List
 
+### ‼ PRIORITY
+
+- [ ] Refactor Message Schema
+  - [ ] Investigate possible "to" field - `"destination_caller_id"`
+  - [ ] `"is_from_me"`
+  - [ ] `"is_delivered"`
+  - [ ] `"is_sent"`
+  - [ ] `"is_read"`
+  - [ ] `"date_edited"`
+- [ ] Investigate other useful fields
+  - [ ] Discuss with team
+  - [ ] AI research
+
 ## 🛠️ Collection & Preservation
 - [x] Evidence Packaging: Implement the `evidence` ZIP collection, including all source artifacts (chat.db, WAL, SHM, attachments, and AddressBook data).
 - [x] Hashing: Implement MD5 and SHA256 hashing for all collected source files.
