@@ -9,6 +9,7 @@ use std::{
     thread,
     time::Duration,
 };
+use crate::logger;
 
 const MAX_COPY_ATTEMPTS: usize = 3;
 const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -218,11 +219,11 @@ pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathB
                 manifest_entries.push((hash, relative_path.display().to_string()));
             }
             Err(e) => {
-                eprintln!(
-                    "Warning: Could not hash file {}: {}",
+                logger::warn_fmt(format_args!(
+                    "Could not hash file {}: {}",
                     relative_path.display(),
                     e
-                );
+                ));
             }
         }
     }
