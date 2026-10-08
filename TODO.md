@@ -9,7 +9,9 @@
       - if `chat` is a group chat id then `chat`
     - else custodian
   - [x] `"is_from_me"`
-  - [ ] populate contact with recipient for messages sent by custodian
+  - [x] populate contact with recipient for messages sent by custodian
+    - done for DMs
+    - must handle group chats differently
   - [ ] `"is_delivered"`
   - [ ] `"is_sent"`
   - [ ] `"is_read"`
