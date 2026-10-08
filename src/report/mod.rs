@@ -76,7 +76,13 @@ pub fn generate(
     fs::write(contacts_dir.join("index.html"), list_markup.into_string())?;
 
     // Custodian page
-    let cust_markup = custodian_page(&meta);
+    let custodian_messages: Vec<Message> = joined_data
+        .iter()
+        .filter(|(m, _)| m.is_from_me.unwrap_or(false))
+        .map(|(m, _)| m.clone())
+        .collect();
+
+    let cust_markup = custodian_page(&meta, &custodian_messages);
     fs::write(
         contacts_dir.join("custodian.html"),
         cust_markup.into_string(),

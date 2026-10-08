@@ -2,7 +2,7 @@ use crate::models::{Contact, Message};
 use crate::report::metadata::CaseMetadata;
 use maud::{Markup, html};
 
-pub fn custodian_page(meta: &CaseMetadata) -> Markup {
+pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     html! {
         (maud::DOCTYPE)
         html {
@@ -15,7 +15,26 @@ pub fn custodian_page(meta: &CaseMetadata) -> Markup {
                 div class="container" {
                     h1 { "Custodian" }
                     a href="../index.html" { "← Back to Home" }
-                    p { "To Do: Create a special contact page for the custodian." }
+                    
+                    h2 { "Messages Sent by Custodian" }
+                    div class="message-list" {
+                        @for msg in messages {
+                            div class="message-item" {
+                                div class="msg-header" {
+                                    span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    @if let Some(chat_id) = &msg.chat {
+                                        span class="chat-link" {
+                                            a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                        }
+                                    }
+                                }
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                            }
+                        }
+                        @if messages.is_empty() {
+                            p { "No messages sent by custodian found." }
+                        }
+                    }
                 }
             }
         }
