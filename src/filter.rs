@@ -63,11 +63,16 @@ mod tests {
             (
                 Message {
                     timestamp,
+                    date_edited: None,
                     chat: None,
                     sender: None,
                     message: Some(format!("message {index}")),
                     is_from_me: Some(index % 2 == 0),
                     attachment: None,
+                    is_delivered: None,
+                    is_sent: None,
+                    is_read: None,
+                    is_forward: None,
                 },
                 None,
             )

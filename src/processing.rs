@@ -66,11 +66,16 @@ pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, Stri
     #[derive(serde::Deserialize)]
     struct SerializedMessage {
         timestamp: Option<String>,
+        date_edited: Option<String>,
         chat: Option<String>,
         sender: Option<String>,
         is_from_me: Option<bool>,
         message: Option<String>,
         attachment: Option<String>,
+        is_delivered: Option<bool>,
+        is_sent: Option<bool>,
+        is_read: Option<bool>,
+        is_forward: Option<bool>,
     }
 
     let serialized_messages: Vec<SerializedMessage> = serde_json::from_str(json_str)
@@ -95,13 +100,33 @@ pub fn unmarshal_messages_from_json(json_str: &str) -> Result<Vec<Message>, Stri
                 })
                 .transpose()?;
 
+            let date_edited = message
+                .date_edited
+                .as_deref()
+                .map(|timestamp| {
+                    DateTime::parse_from_rfc3339(timestamp)
+                        .map(|timestamp| timestamp.with_timezone(&Utc))
+                        .map_err(|err| {
+                            format!(
+                                "cannot parse date_edited for message at index {}: {}",
+                                index, err
+                            )
+                        })
+                })
+                .transpose()?;
+
             Ok(Message {
                 timestamp,
+                date_edited,
                 chat: message.chat,
                 sender: message.sender,
                 is_from_me: message.is_from_me,
                 message: message.message,
                 attachment: message.attachment,
+                is_delivered: message.is_delivered,
+                is_sent: message.is_sent,
+                is_read: message.is_read,
+                is_forward: message.is_forward,
             })
         })
         .collect()
@@ -113,11 +138,16 @@ pub fn unmarshal_msg_contact_tuples_from_json(
     #[derive(serde::Deserialize)]
     struct SerializedJoinedMessage {
         timestamp: Option<DateTime<Utc>>,
+        date_edited: Option<DateTime<Utc>>,
         chat: Option<String>,
         sender: Option<String>,
         is_from_me: Option<bool>,
         message: Option<String>,
         attachment: Option<String>,
+        is_delivered: Option<bool>,
+        is_sent: Option<bool>,
+        is_read: Option<bool>,
+        is_forward: Option<bool>,
         contact: Option<Contact>,
     }
 
@@ -129,11 +159,16 @@ pub fn unmarshal_msg_contact_tuples_from_json(
             (
                 Message {
                     timestamp: joined.timestamp,
+                    date_edited: joined.date_edited,
                     chat: joined.chat,
                     sender: joined.sender,
                     is_from_me: joined.is_from_me,
                     message: joined.message,
                     attachment: joined.attachment,
+                    is_delivered: joined.is_delivered,
+                    is_sent: joined.is_sent,
+                    is_read: joined.is_read,
+                    is_forward: joined.is_forward,
                 },
                 joined.contact,
             )
@@ -198,11 +233,18 @@ pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_js
                     "timestamp": message.timestamp.as_ref().map(|timestamp| {
                         timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
                     }),
+                    "date_edited": message.date_edited.as_ref().map(|timestamp| {
+                        timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+                    }),
                     "chat": message.chat,
                     "sender": message.sender,
                     "is_from_me": message.is_from_me,
                     "message": message.message,
                     "attachment": message.attachment,
+                    "is_delivered": message.is_delivered,
+                    "is_sent": message.is_sent,
+                    "is_read": message.is_read,
+                    "is_forward": message.is_forward,
                     "contact": contact,
                 })
             })
