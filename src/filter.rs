@@ -66,6 +66,7 @@ mod tests {
                     chat: None,
                     sender: None,
                     message: Some(format!("message {index}")),
+                    is_from_me: Some(index % 2 == 0),
                     attachment: None,
                 },
                 None,

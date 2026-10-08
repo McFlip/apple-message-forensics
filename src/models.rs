@@ -21,6 +21,7 @@ pub struct Message {
     pub timestamp: Option<DateTime<Utc>>,
     pub chat: Option<String>,
     pub sender: Option<String>,
+    pub is_from_me: Option<bool>,
     pub message: Option<String>,
     pub attachment: Option<String>,
 }

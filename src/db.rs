@@ -144,6 +144,7 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
         timestamp: Option<String>,
         chat: Option<String>,
         sender: Option<String>,
+        is_from_me: Option<bool>,
         message: Option<String>,
         attachment: Option<String>,
     }
@@ -160,8 +161,9 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
                 timestamp,
                 chat: row.get(1)?,
                 sender: row.get(2)?,
-                message: row.get(3)?,
-                attachment: row.get(4)?,
+                is_from_me: row.get(3)?,
+                message: row.get(4)?,
+                attachment: row.get(5)?,
             })
         })
         .map_err(|err| format!("cannot query messages: {}", err))?

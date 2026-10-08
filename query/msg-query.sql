@@ -2,6 +2,7 @@ SELECT
     strftime('%Y-%m-%dT%H:%M:%SZ', m.date / 1000000000 + 978307200, 'unixepoch') AS timestamp,
     COALESCE(c.display_name, c.chat_identifier) AS chat,
     h.id AS sender,
+    m.is_from_me,
     m.text AS message,
     a.filename AS attachment
 FROM message AS m

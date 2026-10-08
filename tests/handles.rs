@@ -10,12 +10,13 @@ fn get_all_handles_returns_handles_as_json() {
 
     connection
         .execute(
-            "INSERT INTO handle (id, service, country, uncanonicalized_id, person_centric_id)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO handle (ROWID, id, country, service, uncanonicalized_id, person_centric_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             (
+                "1",
                 "+15550000001",
-                "iMessage",
                 "US",
+                "iMessage",
                 "+1 (555) 000-0001",
                 "person-1",
             ),
@@ -23,12 +24,13 @@ fn get_all_handles_returns_handles_as_json() {
         .expect("insert first handle");
     connection
         .execute(
-            "INSERT INTO handle (id, service, country, uncanonicalized_id, person_centric_id)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO handle (ROWID, id, country, service, uncanonicalized_id, person_centric_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             (
+                "2",
                 "+15550000002",
-                "iMessage",
                 "US",
+                "iMessage",
                 "+1 (555) 000-0002",
                 "person-2",
             ),
@@ -36,12 +38,13 @@ fn get_all_handles_returns_handles_as_json() {
         .expect("insert second handle");
     connection
         .execute(
-            "INSERT INTO handle (id, service, country, uncanonicalized_id, person_centric_id)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO handle (ROWID, id, country, service, uncanonicalized_id, person_centric_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             (
+                "3",
                 "alice@example.com",
-                "SMS",
                 "GB",
+                "SMS",
                 "alice@example.com",
                 "person-3",
             ),
