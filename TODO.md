@@ -3,7 +3,9 @@
 ### ‼ PRIORITY
 
 - [ ] Refactor Message Schema
-  - [ ] Investigate possible "to" field - `"destination_caller_id"`
+  - [x] Investigate possible "to" field - `"destination_caller_id"` 
+    - don't use
+    - if `is_from_me` then handle is recipient, else handle is sender
   - [ ] `"is_from_me"`
   - [ ] `"is_delivered"`
   - [ ] `"is_sent"`
@@ -30,6 +32,17 @@
     - [ ] Display active filter settings used for the current report.
     - [ ] Add basic stats: Total messages, earliest message date, and latest message date.
     - [ ] Implement "Top Talkers" summary.
+- [ ] Message attachments
+  - [ ] Copy attachments folder from working copy to report folder
+  - [ ] Strip `~/Library/Messages/` from beginnig of the path
+  - [ ] lowercase?
+  - [ ] Re-encode `heic` media for web
+  - [ ] vcf contact cards?
+  - [ ] display inline with link to file
+- [ ] Packaging
+  - [ ] Embedded Python with PowerShell script to run `http.server`
+  - [ ] Print to PDF
+  - [ ] Export to CSV
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
