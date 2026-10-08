@@ -144,38 +144,47 @@ pub fn unmarshal_msg_contact_tuples_from_json(
 pub fn join_messages_to_contacts(
     messages: &[Message],
     addresses: &ContactLookup,
-) -> Vec<MsgContactTuple> {
+) -> Result<Vec<MsgContactTuple>, String> {
     messages
         .iter()
         .cloned()
-        .map(|message| {
-            let sender_key = message.sender.as_deref().and_then(|sender| {
-                if sender.contains('@') {
-                    Some(sender.to_lowercase())
-                } else {
-                    let unclean_digits = if message.is_from_me.expect("to have is_from_me 0 or 1") {
-                        message
-                            .chat
-                            .clone()
-                            .expect("to have a chat handle for message from custodian")
+        .enumerate()
+        .map(|(index, message)| {
+            let sender_key = match message.sender.as_deref() {
+                None => None,
+                Some(sender) => {
+                    if sender.contains('@') {
+                        Some(sender.to_lowercase())
                     } else {
-                        sender.to_string()
-                    };
-                    let digits = unclean_digits
-                        .chars()
-                        .filter(char::is_ascii_digit)
-                        .collect::<String>();
-                    if digits.is_empty() {
-                        None
-                    } else if digits.starts_with('1') {
-                        Some(format!("+{}", digits))
-                    } else {
-                        Some(format!("+1{}", digits))
+                        let is_from_me = message.is_from_me.ok_or_else(|| {
+                            format!("message at index {} is missing is_from_me", index)
+                        })?;
+                        let unclean_digits = if is_from_me {
+                            message
+                                .chat
+                                .clone()
+                                .ok_or_else(|| {
+                                    format!("message at index {} from custodian is missing chat handle", index)
+                                })?
+                        } else {
+                            sender.to_string()
+                        };
+                        let digits = unclean_digits
+                            .chars()
+                            .filter(char::is_ascii_digit)
+                            .collect::<String>();
+                        if digits.is_empty() {
+                            None
+                        } else if digits.starts_with('1') {
+                            Some(format!("+{}", digits))
+                        } else {
+                            Some(format!("+1{}", digits))
+                        }
                     }
                 }
-            });
+            };
             let contact = sender_key.and_then(|key| addresses.get(&key).cloned());
-            (message, contact)
+            Ok((message, contact))
         })
         .collect()
 }
