@@ -3,10 +3,13 @@
 ### ‼ PRIORITY
 
 - [ ] Refactor Message Schema
-  - [x] Investigate possible "to" field - `"destination_caller_id"` 
-    - don't use
-    - if `is_from_me` then handle is recipient, else handle is sender
-  - [ ] `"is_from_me"`
+  - [x] Investigate possible "to" field
+    - if `is_from_me`
+      - if `chat` is phone number or email - look up contact
+      - if `chat` is a group chat id then `chat`
+    - else custodian
+  - [x] `"is_from_me"`
+  - [ ] populate contact with recipient for messages sent by custodian
   - [ ] `"is_delivered"`
   - [ ] `"is_sent"`
   - [ ] `"is_read"`
@@ -43,6 +46,14 @@
   - [ ] Embedded Python with PowerShell script to run `http.server`
   - [ ] Print to PDF
   - [ ] Export to CSV
+- [ ] Group Chats
+  - [ ] Create `group.json` - filter on `messages.json` looking for "chat[NUM]" regex in `.chat` field
+  - [ ] Create group listing page and link in home.
+  - [ ] List groups where custodian is a member inside the custodian detail page.
+  - [ ] List DM thread seperately - DMs are just group chats with 2 members.
+- [ ] Message card
+  - [ ] Show `Sender -> Receiver`
+  - [ ] Rename `chat` to `follow thread [chatName]` for DM and `go to group chat` for group chats
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
