@@ -54,6 +54,7 @@
 - [ ] Message card
   - [ ] Show `Sender -> Receiver`
   - [ ] Rename `chat` to `follow thread [chatName]` for DM and `go to group chat` for group chats
+- [ ] Unkown contact page
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
