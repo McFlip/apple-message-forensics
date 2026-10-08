@@ -153,7 +153,15 @@ pub fn join_messages_to_contacts(
                 if sender.contains('@') {
                     Some(sender.to_lowercase())
                 } else {
-                    let digits = sender
+                    let unclean_digits = if message.is_from_me.expect("to have is_from_me 0 or 1") {
+                        message
+                            .chat
+                            .clone()
+                            .expect("to have a chat handle for message from custodian")
+                    } else {
+                        sender.to_string()
+                    };
+                    let digits = unclean_digits
                         .chars()
                         .filter(char::is_ascii_digit)
                         .collect::<String>();
