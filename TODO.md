@@ -12,10 +12,10 @@
   - [x] populate contact with recipient for messages sent by custodian
     - done for DMs
     - must handle group chats differently
-  - [ ] `"is_delivered"`
-  - [ ] `"is_sent"`
-  - [ ] `"is_read"`
-  - [ ] `"date_edited"`
+  - [x] `"is_delivered"`
+  - [x] `"is_sent"`
+  - [x] `"is_read"`
+  - [x] `"date_edited"`
 - [ ] Investigate other useful fields
   - [ ] Discuss with team
   - [ ] AI research
@@ -54,7 +54,7 @@
   - [ ] List groups where custodian is a member inside the custodian detail page.
   - [ ] List DM thread seperately - DMs are just group chats with 2 members.
 - [ ] Message card
-  - [ ] Show `Sender -> Receiver`
+  - [x] Show `Sender -> Receiver`
   - [ ] Rename `chat` to `follow thread [chatName]` for DM and `go to group chat` for group chats
 - [ ] Unkown contact page
 
