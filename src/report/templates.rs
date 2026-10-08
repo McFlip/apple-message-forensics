@@ -34,6 +34,7 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
             head {
                 meta charset="utf-8";
                 title { "Custodian - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -56,7 +57,29 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
                         @for msg in messages {
                             div class="message-item" {
                                 div class="msg-header" {
-                                    span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                    span class="timestamp" { 
+                                        (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                        @if let Some(edited) = &msg.date_edited {
+                                            span class="edited-info" {
+                                                i class="fa-solid fa-pen" { }
+                                                " Edited: " (edited.to_rfc3339())
+                                            }
+                                        }
+                                    }
+                                    div class="msg-status" {
+                                        @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
+                                            i class="fa-solid fa-pen-to-square" title="Draft" { }
+                                        }
+                                        @if msg.is_forward.unwrap_or(false) {
+                                            i class="fa-solid fa-share-from-square" title="Forwarded" { }
+                                        }
+                                        @if msg.is_delivered.unwrap_or(false) {
+                                            i class="fa-solid fa-check-double" title="Delivered" { }
+                                        }
+                                        @if msg.is_read.unwrap_or(false) {
+                                            i class="fa-solid fa-eye" title="Read" { }
+                                        }
+                                    }
                                     @if let Some(chat_id) = &msg.chat {
                                         span class="chat-link" {
                                             a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
@@ -83,6 +106,7 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
             head {
                 meta charset="utf-8";
                 title { (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -136,6 +160,7 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
             head {
                 meta charset="utf-8";
                 title { "Contacts - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -172,6 +197,7 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
             head {
                 meta charset="utf-8";
                 title { (contact.first_name.clone().unwrap_or_else(|| "Contact".to_string())) " - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -199,7 +225,29 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                         @for msg in messages {
                             div class="message-item" {
                                  div class="msg-header" {
-                                     span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
+                                     span class="timestamp" { 
+                                         (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                         @if let Some(edited) = &msg.date_edited {
+                                             span class="edited-info" {
+                                                 i class="fa-solid fa-pen" { }
+                                                 " Edited: " (edited.to_rfc3339())
+                                             }
+                                         }
+                                     }
+                                     div class="msg-status" {
+                                         @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
+                                             i class="fa-solid fa-pen-to-square" title="Draft" { }
+                                         }
+                                         @if msg.is_forward.unwrap_or(false) {
+                                             i class="fa-solid fa-share-from-square" title="Forwarded" { }
+                                         }
+                                         @if msg.is_delivered.unwrap_or(false) {
+                                             i class="fa-solid fa-check-double" title="Delivered" { }
+                                         }
+                                         @if msg.is_read.unwrap_or(false) {
+                                             i class="fa-solid fa-eye" title="Read" { }
+                                         }
+                                     }
                                       span class="sender" {
                                           @if msg.is_from_me.unwrap_or(false) {
                                               a href="../contacts/custodian.html" { "Custodian" }
@@ -207,13 +255,13 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                                               (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
                                           }
                                       }
+                                      @if let Some(chat_id) = &msg.chat {
+                                          span class="chat-link" {
+                                              a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                          }
+                                      }
+                                  }
 
-                                     @if let Some(chat_id) = &msg.chat {
-                                         span class="chat-link" {
-                                             a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
-                                         }
-                                     }
-                                 }
 
                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                             }
@@ -232,6 +280,7 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
             head {
                 meta charset="utf-8";
                 title { "Chat Threads - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -268,11 +317,13 @@ pub fn chat_thread_page(
     html! {
         (maud::DOCTYPE)
         html {
-            head {
-                meta charset="utf-8";
-                title { (chat_id) " - " (meta.report.title) }
-                style { (css()) }
-            }
+                                head {
+                                    meta charset="utf-8";
+                                    title { (chat_id) " - " (meta.report.title) }
+                                    link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+                                    style { (css()) }
+                                }
+
             body {
                 div class="container" {
                     h1 { "Chat Thread: " (chat_id) }
@@ -284,30 +335,52 @@ pub fn chat_thread_page(
                         @for (msg, contact) in messages {
                             div class="message-item" {
                                  div class="msg-header" {
-                                     span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
-                                       span class="sender" {
-                                           @if msg.is_from_me.unwrap_or(false) {
-                                               a href="../contacts/custodian.html" { "Custodian" }
-                                           } @else if let Some(c) = contact {
-                                               a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
-                                                   (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
-                                                   " "
-                                                   (c.last_name.clone().unwrap_or_else(|| "".to_string()))
-                                               }
-                                           } @else {
-                                               (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                     span class="timestamp" { 
+                                         (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                         @if let Some(edited) = &msg.date_edited {
+                                             span class="edited-info" {
+                                                 i class="fa-solid fa-pen" { }
+                                                 " Edited: " (edited.to_rfc3339())
+                                             }
+                                         }
+                                     }
+                                     div class="msg-status" {
+                                         @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
+                                             i class="fa-solid fa-pen-to-square" title="Draft" { }
+                                         }
+                                         @if msg.is_forward.unwrap_or(false) {
+                                             i class="fa-solid fa-share-from-square" title="Forwarded" { }
+                                         }
+                                         @if msg.is_delivered.unwrap_or(false) {
+                                             i class="fa-solid fa-check-double" title="Delivered" { }
+                                         }
+                                         @if msg.is_read.unwrap_or(false) {
+                                             i class="fa-solid fa-eye" title="Read" { }
+                                         }
+                                     }
+                                        span class="sender" {
+                                            @if msg.is_from_me.unwrap_or(false) {
+                                                a href="../contacts/custodian.html" { "Custodian" }
+                                            } @else if let Some(c) = contact {
+                                                a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                    (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                    " "
+                                                    (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                                }
+                                            } @else {
+                                                (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                            }
+                                        }
+                                       @if let Some(chat_id) = &msg.chat {
+                                           span class="chat-link" {
+                                               a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
                                            }
                                        }
-                                      @if let Some(chat_id) = &msg.chat {
-                                          span class="chat-link" {
-                                              a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
-                                          }
-                                      }
-                                 }
-                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
-
+                                  }
+                                  div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                             }
                         }
+
                     }
                 }
             }
@@ -327,6 +400,7 @@ pub fn all_messages_page(
             head {
                 meta charset="utf-8";
                 title { "All Messages - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
                 style { (css()) }
             }
             body {
@@ -334,34 +408,56 @@ pub fn all_messages_page(
                     h1 { "All Messages" }
                     a href="../index.html" { "← Back to Home" }
 
-                                    div class="message-list" {
-                                        @for (msg, contact) in messages {
-                                            div class="message-item" {
-                                 div class="msg-header" {
-                                     span class="timestamp" { (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) }
-                                     span class="sender" {
-                                         @if msg.is_from_me.unwrap_or(false) {
-                                             a href="../contacts/custodian.html" { "Custodian" }
-                                         } @else if let Some(c) = contact {
-                                             a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
-                                                 (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
-                                                 " "
-                                                 (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                     div class="message-list" {
+                                         @for (msg, contact) in messages {
+                                             div class="message-item" {
+                                  div class="msg-header" {
+                                      span class="timestamp" { 
+                                          (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                          @if let Some(edited) = &msg.date_edited {
+                                              span class="edited-info" {
+                                                  i class="fa-solid fa-pen" { }
+                                                  " Edited: " (edited.to_rfc3339())
+                                              }
+                                          }
+                                      }
+                                      div class="msg-status" {
+                                          @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
+                                              i class="fa-solid fa-pen-to-square" title="Draft" { }
+                                          }
+                                          @if msg.is_forward.unwrap_or(false) {
+                                              i class="fa-solid fa-share-from-square" title="Forwarded" { }
+                                          }
+                                          @if msg.is_delivered.unwrap_or(false) {
+                                              i class="fa-solid fa-check-double" title="Delivered" { }
+                                          }
+                                          @if msg.is_read.unwrap_or(false) {
+                                              i class="fa-solid fa-eye" title="Read" { }
+                                          }
+                                      }
+                                      span class="sender" {
+                                          @if msg.is_from_me.unwrap_or(false) {
+                                              a href="../contacts/custodian.html" { "Custodian" }
+                                          } @else if let Some(c) = contact {
+                                              a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                  (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                  " "
+                                                  (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                              }
+                                          } @else {
+                                              (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
+                                      }
+                                      @if let Some(chat_id) = &msg.chat {
+                                          span class="chat-link" {
+                                              a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                          }
+                                      }
+                                  }
+                                  div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                                              }
-                                         } @else {
-                                             (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
-                                     }
-                                     @if let Some(chat_id) = &msg.chat {
-                                         span class="chat-link" {
-                                             a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
                                          }
                                      }
-                                 }
-                                 div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
 
-                                            }
-                                        }
-                                    }
 
 
                     div class="pagination" {
@@ -398,8 +494,11 @@ fn css() -> String {
     .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .message-list { display: flex; flex-direction: column; gap: 10px; }
     .message-item { padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
-    .msg-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85em; }
-    .timestamp { color: #888; }
+    .msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.85em; }
+    .timestamp { color: #888; display: flex; align-items: center; gap: 5px; }
+    .edited-info { font-size: 0.8em; color: #999; font-style: italic; }
+    .msg-status { display: flex; gap: 8px; color: #7f8c8d; }
+    .msg-status i { font-size: 1em; }
     .sender a { color: #2980b9; text-decoration: none; font-weight: bold; }
     .chat-link { font-size: 0.8em; color: #7f8c8d; margin-left: 10px; }
     .chat-link a { color: #7f8c8d; text-decoration: none; }
