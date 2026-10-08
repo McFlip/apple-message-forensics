@@ -1,8 +1,33 @@
 use crate::models::{Contact, Message};
 use crate::report::metadata::CaseMetadata;
 use maud::{Markup, html};
+use std::collections::HashSet;
 
 pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
+    let mut emails = HashSet::new();
+    let mut phones = HashSet::new();
+
+    for msg in messages {
+        if let Some(sender) = &msg.sender {
+            if sender.contains('@') {
+                emails.insert(sender.clone());
+            } else if sender.chars().any(|c| c.is_ascii_digit()) {
+                phones.insert(sender.clone());
+            }
+        }
+    }
+
+    let email_list = if emails.is_empty() {
+        "N/A".to_string()
+    } else {
+        emails.into_iter().collect::<Vec<_>>().join(", ")
+    };
+    let phone_list = if phones.is_empty() {
+        "N/A".to_string()
+    } else {
+        phones.into_iter().collect::<Vec<_>>().join(", ")
+    };
+
     html! {
         (maud::DOCTYPE)
         html {
@@ -15,7 +40,17 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
                 div class="container" {
                     h1 { "Custodian" }
                     a href="../index.html" { "← Back to Home" }
-                    
+
+                    div class="contact-card" {
+                        h1 { (meta.custodian.name) }
+                        div class="card-grid" {
+                            p { "Device: " b { (meta.custodian.device_name) } }
+                            p { "Role: " b { "Custodian" } }
+                            p { "Phone: " b { (phone_list) } }
+                            p { "Email: " b { (email_list) } }
+                        }
+                    }
+
                     h2 { "Messages Sent by Custodian" }
                     div class="message-list" {
                         @for msg in messages {
