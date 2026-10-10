@@ -10,19 +10,21 @@ use crate::report::metadata::{CaseMetadata, load_metadata};
     };
 use serde_json;
 use std::collections::HashMap;
+use rlibphonenumber::Region;
 use std::fs;
 use std::path::PathBuf;
 
 fn is_contact_in_group_chat(
     contact: &crate::models::Contact,
     gc: &crate::processing::GrpChat,
+    region: Region,
 ) -> bool {
     gc.participants.iter().any(|participant| {
         // Normalize the participant identifier (phone or email) using the same rules as contacts.
         let normalized_participant = if participant.contains('@') {
             participant.to_lowercase()
         } else {
-            crate::processing::normalize_handle("phone_numbers", participant)
+            crate::processing::normalize_handle("phone_numbers", participant, region)
         };
         for field in ["email_addresses", "phone_numbers"] {
             let raw_value = match field {
@@ -32,7 +34,7 @@ fn is_contact_in_group_chat(
             };
             if let Some(val) = raw_value {
                 for part in val.split('|') {
-                    if crate::processing::normalize_handle(field, part) == normalized_participant {
+                    if crate::processing::normalize_handle(field, part, region) == normalized_participant {
                         return true;
                     }
                 }
@@ -46,6 +48,7 @@ pub fn generate(
     output_dir: PathBuf,
     meta_path: Option<PathBuf>,
     filtered: bool,
+    region: Region,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
@@ -97,7 +100,7 @@ pub fn generate(
 
     let messages: Vec<Message> = joined_data.iter().map(|(m, _)| m.clone()).collect();
     let group_chats =
-        crate::processing::process_group_chats_from_json(&memberships_json, &messages)?;
+        crate::processing::process_group_chats_from_json(&memberships_json, &messages, region)?;
 
     // Sort newest first for global lists
     joined_data.sort_by_key(|a| std::cmp::Reverse(a.0.timestamp));
@@ -144,7 +147,7 @@ pub fn generate(
 
         let contact_group_chats: Vec<&crate::processing::GrpChat> = group_chats
             .values()
-            .filter(|gc| is_contact_in_group_chat(contact, gc))
+            .filter(|gc| is_contact_in_group_chat(contact, gc, region))
             .collect();
 
         let detail_markup =
@@ -227,7 +230,7 @@ mod tests {
     use crate::processing::GrpChat;
     use serde_json::json;
     use std::collections::HashSet;
-    use std::fs;
+use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]
@@ -258,7 +261,7 @@ mod tests {
         )
         .expect("write filtered messages");
 
-        generate(temp_dir.path().to_path_buf(), None, true).expect("generate filtered report");
+        generate(temp_dir.path().to_path_buf(), None, true, Region::US).expect("generate filtered report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -284,7 +287,7 @@ mod tests {
         )
         .expect("write joined messages");
 
-        generate(temp_dir.path().to_path_buf(), None, false).expect("generate report");
+        generate(temp_dir.path().to_path_buf(), None, false, Region::US).expect("generate report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -318,7 +321,7 @@ mod tests {
         };
 
         assert!(
-            is_contact_in_group_chat(&contact, &gc),
+            is_contact_in_group_chat(&contact, &gc, Region::US),
             "Contact should be matched by normalized phone number"
         );
     }

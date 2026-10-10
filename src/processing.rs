@@ -24,7 +24,7 @@ pub fn is_group_chat(chat_handle: &str) -> bool {
     false
 }
 
-pub fn normalize_handle(field: &str, value: &str) -> String {
+pub fn normalize_handle(field: &str, value: &str, region: Region) -> String {
     let value = value.trim();
     if value.is_empty() {
         return String::new();
@@ -35,8 +35,8 @@ pub fn normalize_handle(field: &str, value: &str) -> String {
         // Use rlibphonenumber to parse and format to E.164.
         // First try parsing without an explicit region (handles numbers with a leading '+').
         // If that fails, fall back to assuming US numbers.
-        let parsed = PhoneNumber::parse(value, None)
-            .or_else(|_| PhoneNumber::parse(value, Some(Region::US)));
+let parsed = PhoneNumber::parse(value, None)
+                     .or_else(|_| PhoneNumber::parse(value, Some(region)));
         match parsed {
             Ok(num) => format!("{}", num),
             Err(_) => String::new(),
@@ -55,20 +55,21 @@ mod tests {
 
     #[test]
     fn test_normalize_handle_phone() {
-        assert_eq!(normalize_handle("phone_numbers", "1234567890"), "+11234567890");
-        assert_eq!(normalize_handle("phone_numbers", "+11234567890"), "+11234567890");
-        assert_eq!(normalize_handle("phone_numbers", "234567890"), "+1234567890");
+        assert_eq!(normalize_handle("phone_numbers", "1234567890", Region::US), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "+11234567890", Region::US), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "234567890", Region::US), "+1234567890");
     }
 
     #[test]
     fn test_normalize_handle_email() {
-        assert_eq!(normalize_handle("email_addresses", "JOHN@DOE.COM"), "john@doe.com");
+        assert_eq!(normalize_handle("email_addresses", "JOHN@DOE.COM", Region::US), "john@doe.com");
     }
 }
 
 pub fn process_group_chats_from_json(
     memberships_json: &str,
     messages: &[Message],
+    region: Region,
 ) -> Result<HashMap<String, GrpChat>, String> {
     #[derive(serde::Deserialize)]
     struct GroupMembership {
@@ -109,7 +110,7 @@ pub fn process_group_chats_from_json(
                     let normalized = if p.contains('@') {
                         p.to_lowercase()
                     } else {
-                        normalize_handle("phone_numbers", &p)
+                        normalize_handle("phone_numbers", &p, region)
                     };
                     if !normalized.is_empty() {
                         set.insert(normalized);
@@ -125,7 +126,7 @@ pub fn process_group_chats_from_json(
     Ok(group_chats)
 }
 
-pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, String> {
+pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
@@ -161,7 +162,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
             {
-                let key = normalize_handle(field, value);
+                let key = normalize_handle(field, value, region);
                 if !key.is_empty() {
                     addresses.insert(key, contact_struct.clone());
                 }

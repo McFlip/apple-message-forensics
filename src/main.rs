@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use rlibphonenumber::Region;
 use std::process;
 
 #[derive(Parser, Debug)]
@@ -22,10 +23,12 @@ struct Args {
     #[arg(long, value_name = "DATE", global = true)]
     start: Option<DateTime<Utc>>,
 
+    /// Country/region code used for phone‑number parsing (default: US)
+    #[arg(long, default_value = "US")]
+    region: String,
     /// Include messages on or before this RFC 3339 date and time
     #[arg(long, value_name = "DATE", global = true)]
     end: Option<DateTime<Utc>>,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -79,6 +82,13 @@ fn filter_joined_messages(
 
 fn main() {
     let args = Args::parse();
+    let region = match args.region.parse::<Region>() {
+        Ok(r) => r,
+        Err(_) => {
+            logger::error_fmt(format_args!("Invalid region code: {}", args.region));
+            process::exit(1);
+        }
+    };
 
     match args.command {
         Some(Commands::Report) => {
@@ -108,10 +118,11 @@ fn main() {
                         process::exit(1);
                     }
                 };
-            if let Err(err) = apple_message_forensics::report::generate(
+if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
                 args.meta,
                 filtering_applied,
+                region,
             ) {
                 logger::error_fmt(format_args!("error: {err}"));
                 process::exit(1);
@@ -231,7 +242,7 @@ fn main() {
             ));
 
             logger::info("Parsing contacts...");
-            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses)
+            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region)
                 .expect("to parse contacts");
 
             logger::info("Parsing messages...");
@@ -266,10 +277,11 @@ fn main() {
             };
 
             // Final step: Generate report automatically after collection
-            if let Err(err) = apple_message_forensics::report::generate(
+if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
                 args.meta,
                 filtering_applied,
+                region,
             ) {
                 logger::error_fmt(format_args!("error: {err}"));
                 process::exit(1);
