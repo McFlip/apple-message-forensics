@@ -306,8 +306,8 @@ mod tests {
         };
 
         let mut participants = HashSet::new();
-        participants.insert("+1234567890".to_string()); // matches first normalized number
-        participants.insert("+9876543210".to_string()); // matches second normalized number
+        participants.insert("+11234567890".to_string()); // matches first normalized number
+        participants.insert("+19876543210".to_string()); // matches second normalized number
 
         let gc = GrpChat {
             chat: Some("chat123".to_string()),

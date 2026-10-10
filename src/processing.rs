@@ -1,5 +1,6 @@
-use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
+use rlibphonenumber::{PhoneNumber, Region};
 use chrono::{DateTime, Utc};
+use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
 use std::collections::{HashMap, HashSet};
 
 
@@ -31,20 +32,14 @@ pub fn normalize_handle(field: &str, value: &str) -> String {
     if field == "email_addresses" {
         value.to_lowercase()
     } else {
-        let digits = value
-            .chars()
-            .filter(char::is_ascii_digit)
-            .collect::<String>();
-        if digits.is_empty() {
-            return String::new();
-        }
-        // Normalize phone numbers to E.164 format assuming US numbers.
-        // If the digits already include a leading country code '1' and have 11 digits, keep it.
-        // Otherwise, prepend the US country code '1'.
-        if digits.len() == 11 && digits.starts_with('1') {
-            format!("+{}", digits)
-        } else {
-            format!("+1{}", digits)
+        // Use rlibphonenumber to parse and format to E.164.
+        // First try parsing without an explicit region (handles numbers with a leading '+').
+        // If that fails, fall back to assuming US numbers.
+        let parsed = PhoneNumber::parse(value, None)
+            .or_else(|_| PhoneNumber::parse(value, Some(Region::US)));
+        match parsed {
+            Ok(num) => format!("{}", num),
+            Err(_) => String::new(),
         }
     }
 }
