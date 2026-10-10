@@ -6,7 +6,7 @@ use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
 use crate::report::templates::{
     all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
-    home_page,
+    custodian_page, home_page,
 };
 use serde_json;
 use std::collections::HashMap;
@@ -74,6 +74,19 @@ pub fn generate(
     // Contacts listing page
     let list_markup = contacts_list_page(&meta, &contacts);
     fs::write(contacts_dir.join("index.html"), list_markup.into_string())?;
+
+    // Custodian page
+    let custodian_messages: Vec<Message> = joined_data
+        .iter()
+        .filter(|(m, _)| m.is_from_me.unwrap_or(false))
+        .map(|(m, _)| m.clone())
+        .collect();
+
+    let cust_markup = custodian_page(&meta, &custodian_messages);
+    fs::write(
+        contacts_dir.join("custodian.html"),
+        cust_markup.into_string(),
+    )?;
 
     // Individual contact pages
     for contact in &contacts {

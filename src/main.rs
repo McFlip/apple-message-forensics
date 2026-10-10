@@ -232,7 +232,8 @@ fn main() {
                 .expect("to parse messages");
 
             logger::info("Joining messages with contacts...");
-            let joined = apple_message_forensics::join_messages_to_contacts(&messages, &contacts);
+            let joined = apple_message_forensics::join_messages_to_contacts(&messages, &contacts)
+                .expect("to join messages with contacts");
 
             logger::info("Marshaling joined messages and contacts to JSON...");
             let joined_json = apple_message_forensics::marshal_msg_contact_tuple_to_json(&joined);

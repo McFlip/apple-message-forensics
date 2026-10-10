@@ -19,10 +19,16 @@ pub struct Contact {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Message {
     pub timestamp: Option<DateTime<Utc>>,
+    pub date_edited: Option<DateTime<Utc>>,
     pub chat: Option<String>,
     pub sender: Option<String>,
+    pub is_from_me: Option<bool>,
     pub message: Option<String>,
     pub attachment: Option<String>,
+    pub is_delivered: Option<bool>,
+    pub is_sent: Option<bool>,
+    pub is_read: Option<bool>,
+    pub is_forward: Option<bool>,
 }
 
 pub type EmailOrPhone = String;

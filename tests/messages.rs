@@ -91,24 +91,42 @@ fn get_all_messages_returns_messages_as_json() {
         json!([
             {
                 "timestamp": "2001-01-01T00:00:01Z",
+                "date_edited": null,
                 "chat": "Chat 1",
                 "sender": "sender-1@example.test",
+                "is_from_me": false,
                 "message": "Test message 1",
-                "attachment": "attachment-1.txt"
+                "attachment": "attachment-1.txt",
+                "is_delivered": false,
+                "is_sent": false,
+                "is_read": false,
+                "is_forward": false
             },
             {
                 "timestamp": "2001-01-01T00:00:02Z",
+                "date_edited": null,
                 "chat": "Chat 2",
                 "sender": "sender-2@example.test",
+                "is_from_me": false,
                 "message": "Test message 2",
-                "attachment": "attachment-2.txt"
+                "attachment": "attachment-2.txt",
+                "is_delivered": false,
+                "is_sent": false,
+                "is_read": false,
+                "is_forward": false
             },
             {
                 "timestamp": "2001-01-01T00:00:03Z",
+                "date_edited": null,
                 "chat": "Chat 3",
                 "sender": "sender-3@example.test",
+                "is_from_me": false,
                 "message": "Test message 3",
-                "attachment": "attachment-3.txt"
+                "attachment": "attachment-3.txt",
+                "is_delivered": false,
+                "is_sent": false,
+                "is_read": false,
+                "is_forward": false
             }
         ])
     );

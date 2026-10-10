@@ -142,11 +142,18 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
     #[derive(serde::Serialize)]
     struct Message {
         timestamp: Option<String>,
+        date_edited: Option<String>,
         chat: Option<String>,
         sender: Option<String>,
+        is_from_me: Option<bool>,
         message: Option<String>,
         attachment: Option<String>,
+        is_delivered: Option<bool>,
+        is_sent: Option<bool>,
+        is_read: Option<bool>,
+        is_forward: Option<bool>,
     }
+
 
     let connection = Connection::open(chat_db)
         .map_err(|err| format!("cannot open chat database '{}': {}", chat_db.display(), err))?;
@@ -158,10 +165,16 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
             let timestamp: Option<String> = row.get(0)?;
             Ok(Message {
                 timestamp,
-                chat: row.get(1)?,
-                sender: row.get(2)?,
-                message: row.get(3)?,
-                attachment: row.get(4)?,
+                date_edited: row.get(1)?,
+                chat: row.get(2)?,
+                sender: row.get(3)?,
+                is_from_me: row.get(4)?,
+                message: row.get(5)?,
+                attachment: row.get(6)?,
+                is_delivered: row.get(7)?,
+                is_sent: row.get(8)?,
+                is_read: row.get(9)?,
+                is_forward: row.get(10)?,
             })
         })
         .map_err(|err| format!("cannot query messages: {}", err))?
