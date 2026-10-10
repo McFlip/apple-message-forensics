@@ -1,6 +1,10 @@
 /* WARNING! ERRORS ENCOUNTERED DURING SQL PARSING! */
 SELECT strftime('%Y-%m-%dT%H:%M:%SZ', m.DATE / 1000000000 + 978307200, 'unixepoch') AS TIMESTAMP
-	,strftime('%Y-%m-%dT%H:%M:%SZ', m.date_edited / 1000000000 + 978307200, 'unixepoch') AS date_edited
+	,	CASE 
+    WHEN m.date_edited = 0 
+      THEN NULL 
+    ELSE strftime('%Y-%m-%dT%H:%M:%SZ', m.date_edited / 1000000000 + 978307200, 'unixepoch') 
+  END AS date_edited
 	,COALESCE(NULLIF(c.display_name, ''), NULLIF(c.chat_identifier, ''), NULLIF(m.ck_chat_id, ''), '') AS chat
 	,CASE 
 		WHEN m.handle_id = 0

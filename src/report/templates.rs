@@ -57,7 +57,6 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     )
 }
 
-
 pub fn home_page(meta: &CaseMetadata) -> Markup {
     page_layout(
         &meta.report.title,
@@ -131,7 +130,14 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
 
 pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[Message]) -> Markup {
     page_layout(
-        &format!("{} - {}", contact.first_name.clone().unwrap_or_else(|| "Contact".to_string()), meta.report.title),
+        &format!(
+            "{} - {}",
+            contact
+                .first_name
+                .clone()
+                .unwrap_or_else(|| "Contact".to_string()),
+            meta.report.title
+        ),
         html! {
             a href="../index.html" { "← Back to Home" }
             span { " | " }
@@ -160,7 +166,6 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
         },
     )
 }
-
 
 pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Markup {
     page_layout(
@@ -214,8 +219,8 @@ pub fn chat_thread_page(
                         @for (msg, contact) in messages {
                             div class="message-item" {
                                  div class="msg-header" {
-                                     span class="timestamp" { 
-                                         (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                     span class="timestamp" {
+                                         (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string()))
                                          @if let Some(edited) = &msg.date_edited {
                                              span class="edited-info" {
                                                  i class="fa-solid fa-pen" { }
@@ -306,8 +311,8 @@ pub fn all_messages_page(
                                          @for (msg, contact) in messages {
                                              div class="message-item" {
                                   div class="msg-header" {
-                                      span class="timestamp" { 
-                                          (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+                                      span class="timestamp" {
+                                          (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string()))
                                           @if let Some(edited) = &msg.date_edited {
                                               span class="edited-info" {
                                                   i class="fa-solid fa-pen" { }
@@ -443,8 +448,8 @@ fn page_layout(title: &str, content: Markup) -> Markup {
 fn render_message_header(msg: &Message, contact: Option<&Contact>) -> Markup {
     html! {
         div class="msg-header" {
-            span class="timestamp" { 
-                (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string())) 
+            span class="timestamp" {
+                (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string()))
                 @if let Some(edited) = &msg.date_edited {
                     span class="edited-info" {
                         i class="fa-solid fa-pen" { }
