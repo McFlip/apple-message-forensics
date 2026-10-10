@@ -136,12 +136,16 @@ pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<C
             .as_object()
             .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
 
-        let contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
+        let mut contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
             format!(
                 "cannot deserialize address at index {}: {}",
                 contact_index, err
             )
         })?;
+        // Collect normalized handles for this contact
+        let mut norm_emails: Vec<String> = Vec::new();
+        let mut norm_phones: Vec<String> = Vec::new();
+        let mut all_keys: Vec<String> = Vec::new();
 
         for field in ["email_addresses", "phone_numbers"] {
             let Some(value) = contact_object.get(field) else {
@@ -157,17 +161,39 @@ pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<C
                 ));
             };
 
-            for value in values
+            for raw in values
                 .split('|')
                 .map(str::trim)
-                .filter(|value| !value.is_empty())
+                .filter(|v| !v.is_empty())
             {
-                let key = normalize_handle(field, value, region);
-                if !key.is_empty() {
-                    addresses.insert(key, contact_struct.clone());
+                let normalized = normalize_handle(field, raw, region);
+                if !normalized.is_empty() {
+                    all_keys.push(normalized.clone());
+                }
+                // Populate per‑contact normalized vectors
+                if field == "email_addresses" {
+                    if !normalized.is_empty() {
+                        norm_emails.push(normalized);
+                    }
+                } else {
+                    if !normalized.is_empty() {
+                        norm_phones.push(normalized);
+                    }
                 }
             }
         }
+        // Assign vectors to the contact struct (None when empty)
+        if !norm_emails.is_empty() {
+            contact_struct.normalized_email_addresses = Some(norm_emails);
+        }
+        if !norm_phones.is_empty() {
+            contact_struct.normalized_phone_numbers = Some(norm_phones);
+        }
+        // Insert the contact into the lookup map for each normalized key
+        for key in all_keys {
+            addresses.insert(key, contact_struct.clone());
+        }
+
     }
 
     Ok(addresses)

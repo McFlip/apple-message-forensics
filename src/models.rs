@@ -5,15 +5,22 @@ use std::collections::HashMap;
 pub struct Contact {
     pub contact_id: Option<serde_json::Value>,
     pub contact_unique_id: Option<String>,
+    /// Raw email addresses as a single pipe‑separated string (kept for display only)
     pub email_addresses: Option<String>,
+    /// Raw phone numbers as a single pipe‑separated string (kept for display only)
+    pub phone_numbers: Option<String>,
+    /// Normalized lower‑cased email addresses, one per raw entry.
+    pub normalized_email_addresses: Option<Vec<String>>, 
+    /// Normalized E.164 phone numbers, one per raw entry.
+    pub normalized_phone_numbers: Option<Vec<String>>, 
     pub first_name: Option<String>,
     pub job_title: Option<String>,
     pub last_name: Option<String>,
     pub middle_name: Option<String>,
     pub nickname: Option<String>,
     pub organization: Option<String>,
-    pub phone_numbers: Option<String>,
     pub record_type: Option<serde_json::Value>,
+
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
