@@ -72,8 +72,8 @@ All of these are both pros and cons, but you should be aware of them.
 
 #### Technical Limitations
 
-* Phone numbers have to be normalized to a standard format in order to join message handles to contacts from the address book - This tool assumes US phone numbers in accordance with the E.164 format.
-* I will look at using a library like `rlibphonenumber` for handling international #s.
+* Phone numbers have to be normalized to a standard format in order to join message handles to contacts from the address books - This tool uses `rlibphonenumber` to normalize phone numbers in accordance with the E.164 format.
+* It should be able to handle international #s, but I haven't tested this with real data yet.
 
 ## Prerequisite Access
 
@@ -285,6 +285,14 @@ You can combine date range and contact filters
 
 ```bash
 apple-message-forensics --start "2026-01-01" --end "2026-01-31" --filter-contacts "1,2,3"
+```
+
+### Change the Country/Region code from US
+
+Example using `DE` for Germany
+
+```bash
+apple-message-forensics --region DE
 ```
 
 ### Deliver
