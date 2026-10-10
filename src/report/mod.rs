@@ -4,10 +4,10 @@ pub mod templates;
 use crate::models::{Contact, Message, MsgContactTuple};
 use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
-use crate::report::templates::{
-    all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
-    custodian_page, home_page,
-};
+    use crate::report::templates::{
+        all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
+        custodian_page, home_page, group_chats_page,
+    };
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
@@ -155,7 +155,7 @@ pub fn generate(
         )?;
     }
 
-    // Chats section
+
     let chats_dir = report_dir.join("chats");
     fs::create_dir_all(&chats_dir)?;
 
@@ -193,7 +193,9 @@ pub fn generate(
         )?;
     }
 
-    // All messages listing with pagination
+    // Group Chats summary page
+    let group_chats_markup = group_chats_page(&meta, &group_chats, &chat_groups);
+    fs::write(report_dir.join("group_chats.html"), group_chats_markup.into_string())?;
     let messages_dir = report_dir.join("messages");
     fs::create_dir_all(&messages_dir)?;
 

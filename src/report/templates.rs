@@ -2,7 +2,7 @@ use crate::models::{Contact, Message};
 use crate::processing::GrpChat;
 use crate::report::metadata::CaseMetadata;
 use maud::{Markup, html};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     let mut emails = HashSet::new();
@@ -94,6 +94,8 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                     a href="contacts/index.html" { "View Contacts List" }
                     " | "
                     a href="chats/index.html" { "View Chat Threads" }
+                    " | "
+                    a href="group_chats.html" { "View Group Chats" }
                     " | "
                     a href="messages/index.html" { "View All Messages" }
                 }
@@ -192,6 +194,35 @@ pub fn contact_detail_page(
     )
 }
 
+pub fn group_chats_page(
+    meta: &CaseMetadata,
+    group_chats: &HashMap<String, GrpChat>,
+    chat_messages: &HashMap<String, Vec<(Message, Option<Contact>)>>,
+) -> Markup {
+    page_layout(
+        &format!("Group Chats - {}", meta.report.title),
+        html! {
+            h1 { "Group Chats" }
+            a href="../index.html" { "← Back to Home" }
+            @for (chat_id, gc) in group_chats {
+                div class="group-chat-section" {
+                    h2 { (chat_id) }
+                    p { "Participants: " b { (gc.participants.iter().cloned().collect::<Vec<_>>().join(", ")) } }
+                    @let msgs = chat_messages.get(chat_id).cloned().unwrap_or_default();
+                    @let sorted = {
+                        let mut v = msgs.clone();
+                        v.sort_by_key(|(m, _)| std::cmp::Reverse(m.timestamp));
+                        v
+                    };
+                    @for (msg, _) in sorted.iter().take(5) {
+                        (render_message_item(msg, None))
+                    }
+                }
+            }
+        },
+    )
+}
+
 pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Markup {
     page_layout(
         &format!("Chat Threads - {}", meta.report.title),
@@ -217,6 +248,7 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
         },
     )
 }
+
 
 pub fn chat_thread_page(
     meta: &CaseMetadata,
