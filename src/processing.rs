@@ -1,8 +1,132 @@
-use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
+use rlibphonenumber::{PhoneNumber, Region};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
+use std::collections::{HashMap, HashSet};
 
-pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, String> {
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GrpChat {
+    pub chat: Option<String>,
+    pub messages: Vec<Message>,
+    pub participants: HashSet<String>,
+}
+
+pub fn is_group_chat(chat_handle: &str) -> bool {
+    // Chat GUIDs can contain semicolon‑separated components (e.g. "any;+;chat157232977552461316").
+    // The actual chat identifier is the part after the last ';' that starts with "chat" followed by digits.
+    let parts: Vec<&str> = chat_handle.split(';').collect();
+    if let Some(last) = parts.last() {
+        if last.starts_with("chat") {
+            let digits = &last[4..];
+            return !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
+        }
+    }
+    false
+}
+
+pub fn normalize_handle(field: &str, value: &str, region: Region) -> String {
+    let value = value.trim();
+    if value.is_empty() {
+        return String::new();
+    }
+    if field == "email_addresses" {
+        value.to_lowercase()
+    } else {
+        // Use rlibphonenumber to parse and format to E.164.
+        // First try parsing without an explicit region (handles numbers with a leading '+').
+        // If that fails, fall back to assuming US numbers.
+let parsed = PhoneNumber::parse(value, None)
+                     .or_else(|_| PhoneNumber::parse(value, Some(region)));
+        match parsed {
+            Ok(num) => format!("{}", num),
+            Err(_) => String::new(),
+        }
+    }
+}
+
+// Extract the canonical chat identifier (last segment) from a GUID like "any;+;chat123".
+pub fn normalize_chat_guid(guid: &str) -> String {
+    guid.split(';').last().unwrap_or(guid).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_handle_phone() {
+        assert_eq!(normalize_handle("phone_numbers", "1234567890", Region::US), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "+11234567890", Region::US), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "234567890", Region::US), "+1234567890");
+    }
+
+    #[test]
+    fn test_normalize_handle_email() {
+        assert_eq!(normalize_handle("email_addresses", "JOHN@DOE.COM", Region::US), "john@doe.com");
+    }
+}
+
+pub fn process_group_chats_from_json(
+    memberships_json: &str,
+    messages: &[Message],
+    region: Region,
+) -> Result<HashMap<String, GrpChat>, String> {
+    #[derive(serde::Deserialize)]
+    struct GroupMembership {
+        chat_guid: String,
+        participants: Vec<String>,
+    }
+
+    let memberships: Vec<GroupMembership> = serde_json::from_str(memberships_json)
+        .map_err(|err| format!("cannot parse group memberships JSON: {}", err))?;
+
+    let mut group_chats = HashMap::new();
+
+    for membership in memberships {
+        if is_group_chat(&membership.chat_guid) {
+            let normalized_guid = normalize_chat_guid(&membership.chat_guid);
+            let chat_messages: Vec<Message> = messages
+                .iter()
+                .filter(|m| {
+                    if let Some(chat) = &m.chat {
+                        normalize_chat_guid(chat) == normalized_guid
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect();
+
+            group_chats.insert(
+                normalized_guid.clone(),
+                GrpChat {
+                    chat: Some(normalized_guid),
+                    messages: chat_messages,
+                    participants: {
+                // Normalize each participant (phone numbers or email addresses) using the existing helper.
+                // Email addresses are lower‑cased; phone numbers are normalized via normalize_handle.
+                let mut set = std::collections::HashSet::new();
+                for p in membership.participants {
+                    let normalized = if p.contains('@') {
+                        p.to_lowercase()
+                    } else {
+                        normalize_handle("phone_numbers", &p, region)
+                    };
+                    if !normalized.is_empty() {
+                        set.insert(normalized);
+                    }
+                }
+                set
+            },
+                },
+            );
+        }
+    }
+
+    Ok(group_chats)
+}
+
+pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
@@ -12,12 +136,16 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
             .as_object()
             .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
 
-        let contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
+        let mut contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
             format!(
                 "cannot deserialize address at index {}: {}",
                 contact_index, err
             )
         })?;
+        // Collect normalized handles for this contact
+        let mut norm_emails: Vec<String> = Vec::new();
+        let mut norm_phones: Vec<String> = Vec::new();
+        let mut all_keys: Vec<String> = Vec::new();
 
         for field in ["email_addresses", "phone_numbers"] {
             let Some(value) = contact_object.get(field) else {
@@ -33,30 +161,39 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
                 ));
             };
 
-            for value in values
+            for raw in values
                 .split('|')
                 .map(str::trim)
-                .filter(|value| !value.is_empty())
+                .filter(|v| !v.is_empty())
             {
-                let key = if field == "email_addresses" {
-                    value.to_lowercase()
-                } else {
-                    let digits = value
-                        .chars()
-                        .filter(char::is_ascii_digit)
-                        .collect::<String>();
-                    match digits.chars().next() {
-                        Some('1') => format!("+{}", digits),
-                        Some('+') => digits,
-                        Some(_) => format!("+1{}", digits),
-                        None => String::new(),
+                let normalized = normalize_handle(field, raw, region);
+                if !normalized.is_empty() {
+                    all_keys.push(normalized.clone());
+                }
+                // Populate per‑contact normalized vectors
+                if field == "email_addresses" {
+                    if !normalized.is_empty() {
+                        norm_emails.push(normalized);
                     }
-                };
-                if !key.is_empty() {
-                    addresses.insert(key, contact_struct.clone());
+                } else {
+                    if !normalized.is_empty() {
+                        norm_phones.push(normalized);
+                    }
                 }
             }
         }
+        // Assign vectors to the contact struct (None when empty)
+        if !norm_emails.is_empty() {
+            contact_struct.normalized_email_addresses = Some(norm_emails);
+        }
+        if !norm_phones.is_empty() {
+            contact_struct.normalized_phone_numbers = Some(norm_phones);
+        }
+        // Insert the contact into the lookup map for each normalized key
+        for key in all_keys {
+            addresses.insert(key, contact_struct.clone());
+        }
+
     }
 
     Ok(addresses)

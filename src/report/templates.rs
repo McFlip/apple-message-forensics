@@ -1,7 +1,8 @@
 use crate::models::{Contact, Message};
+use crate::processing::GrpChat;
 use crate::report::metadata::CaseMetadata;
 use maud::{Markup, html};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     let mut emails = HashSet::new();
@@ -94,6 +95,8 @@ pub fn home_page(meta: &CaseMetadata) -> Markup {
                     " | "
                     a href="chats/index.html" { "View Chat Threads" }
                     " | "
+                    a href="group_chats.html" { "View Group Chats" }
+                    " | "
                     a href="messages/index.html" { "View All Messages" }
                 }
             }
@@ -128,7 +131,12 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
     )
 }
 
-pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[Message]) -> Markup {
+pub fn contact_detail_page(
+    meta: &CaseMetadata,
+    contact: &Contact,
+    messages: &[Message],
+    group_chats: &[&GrpChat],
+) -> Markup {
     page_layout(
         &format!(
             "{} - {}",
@@ -157,10 +165,58 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                 }
             }
 
+            h2 { "Group Chats" }
+            div class="group-chats-section" {
+                @if group_chats.is_empty() {
+                    p { "None" }
+                } @else {
+                    ul {
+                        @for chat in group_chats {
+                            li {
+                                b { (chat.chat.clone().unwrap_or_else(|| "Unknown".to_string())) }
+                                " - Participants: "
+                                (chat.participants.iter().cloned().collect::<Vec<_>>().join(", "))
+                                " "
+                                a href=(format!("../chats/chat_{}.html", chat.chat.clone().unwrap_or_default())) { "View Thread" }
+                            }
+                        }
+                    }
+                }
+            }
+
             h2 { "Messages" }
             div class="message-list" {
                 @for msg in messages {
                     (render_message_item(msg, Some(contact)))
+                }
+            }
+        },
+    )
+}
+
+pub fn group_chats_page(
+    meta: &CaseMetadata,
+    group_chats: &HashMap<String, GrpChat>,
+    chat_messages: &HashMap<String, Vec<(Message, Option<Contact>)>>,
+) -> Markup {
+    page_layout(
+        &format!("Group Chats - {}", meta.report.title),
+        html! {
+            h1 { "Group Chats" }
+            a href="../index.html" { "← Back to Home" }
+            @for (chat_id, gc) in group_chats {
+                div class="group-chat-section" {
+                    h2 { (chat_id) }
+                    p { "Participants: " b { (gc.participants.iter().cloned().collect::<Vec<_>>().join(", ")) } }
+                    @let msgs = chat_messages.get(chat_id).cloned().unwrap_or_default();
+                    @let sorted = {
+                        let mut v = msgs.clone();
+                        v.sort_by_key(|(m, _)| std::cmp::Reverse(m.timestamp));
+                        v
+                    };
+                    @for (msg, _) in sorted.iter().take(5) {
+                        (render_message_item(msg, None))
+                    }
                 }
             }
         },
@@ -192,6 +248,7 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
         },
     )
 }
+
 
 pub fn chat_thread_page(
     meta: &CaseMetadata,
@@ -421,6 +478,9 @@ fn css() -> String {
     .chat-summary b { min-width: 150px; }
     .chat-summary .timestamp { color: #999; font-size: 0.8em; }
     .chat-summary .snippet { flex: 1; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .group-chats-section ul { list-style: none; padding: 0; }
+    .group-chats-section li { margin: 10px 0; padding: 10px; background: #fefefe; border: 1px solid #ddd; border-radius: 4px; }
+    .group-chats-section a { text-decoration: none; color: #3498db; font-weight: bold; margin-left: 10px; }
     .pagination { margin-top: 20px; text-align: center; }
     .pagination a { margin: 0 10px; text-decoration: none; color: #3498db; }
     "#.to_string()

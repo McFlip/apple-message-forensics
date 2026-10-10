@@ -70,6 +70,11 @@ All of these are both pros and cons, but you should be aware of them.
 * 2-Factor auth - If a custodian suddenly passes away or refuses to co-operate with their custodial duties, you won't be able to log in to the iCloud
   * Some MDM solutions allow you to reset the password to the phone, but that is separate from the iCloud login
 
+#### Technical Limitations
+
+* Phone numbers have to be normalized to a standard format in order to join message handles to contacts from the address books - This tool uses `rlibphonenumber` to normalize phone numbers in accordance with the E.164 format.
+* It should be able to handle international #s, but I haven't tested this with real data yet.
+
 ## Prerequisite Access
 
 You need to grant **Full Disk Access** to the application from which you run the tool.
@@ -280,6 +285,14 @@ You can combine date range and contact filters
 
 ```bash
 apple-message-forensics --start "2026-01-01" --end "2026-01-31" --filter-contacts "1,2,3"
+```
+
+### Change the Country/Region code from US
+
+Example using `DE` for Germany
+
+```bash
+apple-message-forensics --region DE
 ```
 
 ### Deliver

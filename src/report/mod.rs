@@ -4,19 +4,50 @@ pub mod templates;
 use crate::models::{Contact, Message, MsgContactTuple};
 use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
-use crate::report::templates::{
-    all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
-    custodian_page, home_page,
-};
+    use crate::report::templates::{
+        all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
+        custodian_page, home_page, group_chats_page,
+    };
 use serde_json;
 use std::collections::HashMap;
+use rlibphonenumber::Region;
 use std::fs;
 use std::path::PathBuf;
+
+fn is_contact_in_group_chat(
+    contact: &crate::models::Contact,
+    gc: &crate::processing::GrpChat,
+    region: Region,
+) -> bool {
+        gc.participants.iter().any(|participant| {
+            // Normalize the participant identifier (phone or email) using the same rules as contacts.
+            let normalized_participant = if participant.contains('@') {
+                participant.to_lowercase()
+            } else {
+                crate::processing::normalize_handle("phone_numbers", participant, region)
+            };
+
+            // Check normalized email array
+            if let Some(ref emails) = contact.normalized_email_addresses {
+                if emails.contains(&normalized_participant) {
+                    return true;
+                }
+            }
+            // Check normalized phone array
+            if let Some(ref phones) = contact.normalized_phone_numbers {
+                if phones.contains(&normalized_participant) {
+                    return true;
+                }
+            }
+            false
+        })
+}
 
 pub fn generate(
     output_dir: PathBuf,
     meta_path: Option<PathBuf>,
     filtered: bool,
+    region: Region,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
@@ -56,6 +87,7 @@ pub fn generate(
     let contacts_json = fs::read_to_string(json_dir.join("addresses.json"))?;
     let contacts: Vec<Contact> = serde_json::from_str(&contacts_json)?;
 
+    let memberships_json = fs::read_to_string(json_dir.join("group_memberships.json"))?;
     let joined_filename = if filtered {
         "filtered.json"
     } else {
@@ -64,6 +96,10 @@ pub fn generate(
     let joined_json_str = fs::read_to_string(json_dir.join(joined_filename))?;
     let mut joined_data: Vec<MsgContactTuple> =
         unmarshal_msg_contact_tuples_from_json(&joined_json_str)?;
+
+    let messages: Vec<Message> = joined_data.iter().map(|(m, _)| m.clone()).collect();
+    let group_chats =
+        crate::processing::process_group_chats_from_json(&memberships_json, &messages, region)?;
 
     // Sort newest first for global lists
     joined_data.sort_by_key(|a| std::cmp::Reverse(a.0.timestamp));
@@ -108,21 +144,28 @@ pub fn generate(
             .map(|(m, _)| m.clone())
             .collect();
 
-        let detail_markup = contact_detail_page(&meta, contact, &contact_messages);
+        let contact_group_chats: Vec<&crate::processing::GrpChat> = group_chats
+            .values()
+            .filter(|gc| is_contact_in_group_chat(contact, gc, region))
+            .collect();
+
+        let detail_markup =
+            templates::contact_detail_page(&meta, contact, &contact_messages, &contact_group_chats);
         fs::write(
             contacts_dir.join(contact_filename),
             detail_markup.into_string(),
         )?;
     }
 
-    // Chats section
+
     let chats_dir = report_dir.join("chats");
     fs::create_dir_all(&chats_dir)?;
 
     let mut chat_groups: HashMap<String, Vec<(Message, Option<Contact>)>> = HashMap::new();
     for (msg, contact) in joined_data.clone() {
         if let Some(chat_id) = msg.chat.clone() {
-            chat_groups.entry(chat_id).or_default().push((msg, contact));
+            let norm_id = crate::processing::normalize_chat_guid(&chat_id);
+            chat_groups.entry(norm_id).or_default().push((msg, contact));
         }
     }
 
@@ -152,7 +195,9 @@ pub fn generate(
         )?;
     }
 
-    // All messages listing with pagination
+    // Group Chats summary page
+    let group_chats_markup = group_chats_page(&meta, &group_chats, &chat_groups);
+    fs::write(report_dir.join("group_chats.html"), group_chats_markup.into_string())?;
     let messages_dir = report_dir.join("messages");
     fs::create_dir_all(&messages_dir)?;
 
@@ -179,9 +224,12 @@ pub fn generate(
 
 #[cfg(test)]
 mod tests {
-    use super::generate;
+    use super::*;
+    use crate::models::Contact;
+    use crate::processing::GrpChat;
     use serde_json::json;
-    use std::fs;
+    use std::collections::HashSet;
+use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]
@@ -190,6 +238,7 @@ mod tests {
         let json_dir = temp_dir.path().join("json");
         fs::create_dir(&json_dir).expect("create JSON directory");
         fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
         fs::write(
             json_dir.join("joined.json"),
             json!([{
@@ -211,7 +260,7 @@ mod tests {
         )
         .expect("write filtered messages");
 
-        generate(temp_dir.path().to_path_buf(), None, true).expect("generate filtered report");
+        generate(temp_dir.path().to_path_buf(), None, true, Region::US).expect("generate filtered report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -225,6 +274,7 @@ mod tests {
         let json_dir = temp_dir.path().join("json");
         fs::create_dir(&json_dir).expect("create JSON directory");
         fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
         fs::write(
             json_dir.join("joined.json"),
             json!([{
@@ -236,10 +286,44 @@ mod tests {
         )
         .expect("write joined messages");
 
-        generate(temp_dir.path().to_path_buf(), None, false).expect("generate report");
+        generate(temp_dir.path().to_path_buf(), None, false, Region::US).expect("generate report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
         assert!(report.contains("unfiltered message"));
+    }
+
+    #[test]
+    fn test_is_contact_in_group_chat() {
+        let contact = Contact {
+            contact_id: Some(serde_json::json!(1)),
+            contact_unique_id: Some("unique_id".to_string()),
+            first_name: Some("John".to_string()),
+            middle_name: None,
+            last_name: Some("Doe".to_string()),
+            nickname: None,
+            organization: None,
+            job_title: None,
+            record_type: None,
+            phone_numbers: Some("1234567890 | 9876543210".to_string()),
+            email_addresses: Some("john@doe.com".to_string()),
+            normalized_email_addresses: None,
+            normalized_phone_numbers: Some(vec!["+11234567890".to_string(), "+19876543210".to_string()]),
+        };
+
+        let mut participants = HashSet::new();
+        participants.insert("+11234567890".to_string()); // matches first normalized number
+        participants.insert("+19876543210".to_string()); // matches second normalized number
+
+        let gc = GrpChat {
+            chat: Some("chat123".to_string()),
+            messages: vec![],
+            participants,
+        };
+
+        assert!(
+            is_contact_in_group_chat(&contact, &gc, Region::US),
+            "Contact should be matched by normalized phone number"
+        );
     }
 }
