@@ -1,4 +1,5 @@
 use crate::models::{Contact, Message};
+use crate::processing::GrpChat;
 use crate::report::metadata::CaseMetadata;
 use maud::{Markup, html};
 use std::collections::HashSet;
@@ -128,7 +129,12 @@ pub fn contacts_list_page(meta: &CaseMetadata, contacts: &[Contact]) -> Markup {
     )
 }
 
-pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[Message]) -> Markup {
+pub fn contact_detail_page(
+    meta: &CaseMetadata,
+    contact: &Contact,
+    messages: &[Message],
+    group_chats: &[&GrpChat],
+) -> Markup {
     page_layout(
         &format!(
             "{} - {}",
@@ -154,6 +160,25 @@ pub fn contact_detail_page(meta: &CaseMetadata, contact: &Contact, messages: &[M
                     p { "Email: " b { (contact.email_addresses.clone().unwrap_or_else(|| "N/A".to_string())) } }
                     p { "Organization: " b { (contact.organization.clone().unwrap_or_else(|| "N/A".to_string())) } }
                     p { "Job Title: " b { (contact.job_title.clone().unwrap_or_else(|| "N/A".to_string())) } }
+                }
+            }
+
+            h2 { "Group Chats" }
+            div class="group-chats-section" {
+                @if group_chats.is_empty() {
+                    p { "None" }
+                } @else {
+                    ul {
+                        @for chat in group_chats {
+                            li {
+                                b { (chat.chat.clone().unwrap_or_else(|| "Unknown".to_string())) }
+                                " - Participants: "
+                                (chat.participants.iter().cloned().collect::<Vec<_>>().join(", "))
+                                " "
+                                a href=(format!("../chats/chat_{}.html", chat.chat.clone().unwrap_or_default())) { "View Thread" }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -421,6 +446,9 @@ fn css() -> String {
     .chat-summary b { min-width: 150px; }
     .chat-summary .timestamp { color: #999; font-size: 0.8em; }
     .chat-summary .snippet { flex: 1; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .group-chats-section ul { list-style: none; padding: 0; }
+    .group-chats-section li { margin: 10px 0; padding: 10px; background: #fefefe; border: 1px solid #ddd; border-radius: 4px; }
+    .group-chats-section a { text-decoration: none; color: #3498db; font-weight: bold; margin-left: 10px; }
     .pagination { margin-top: 20px; text-align: center; }
     .pagination a { margin: 0 10px; text-decoration: none; color: #3498db; }
     "#.to_string()

@@ -184,6 +184,7 @@ fn main() {
                 vault_src.as_path().display(),
                 vault_path.as_path().display()
             ));
+            // eprintln!("DEBUG: Skipping zip for testing purposes...");
             apple_message_forensics::archive_evidence(vault_src.as_path(), vault_path.as_path())
                 .expect("evidence archive to be created");
             logger::info_fmt(format_args!(
@@ -203,6 +204,17 @@ fn main() {
             logger::info_fmt(format_args!(
                 "Extracted handles to JSON file at {}",
                 handles_path.display()
+            ));
+
+            logger::info("Extracting group memberships from chat database...");
+            let memberships = apple_message_forensics::get_all_group_memberships(&chat_db)
+                .expect("to get group memberships");
+            let memberships_path = json_dir.join("group_memberships.json");
+            std::fs::write(&memberships_path, memberships)
+                .expect("to write group memberships to JSON file");
+            logger::info_fmt(format_args!(
+                "Extracted group memberships to JSON file at {}",
+                memberships_path.display()
             ));
 
             logger::info("Extracting contacts from AddressBook-v22.abcddb ...");

@@ -1,6 +1,134 @@
 use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GrpChat {
+    pub chat: Option<String>,
+    pub messages: Vec<Message>,
+    pub participants: HashSet<String>,
+}
+
+pub fn is_group_chat(chat_handle: &str) -> bool {
+    // Chat GUIDs can contain semicolon‑separated components (e.g. "any;+;chat157232977552461316").
+    // The actual chat identifier is the part after the last ';' that starts with "chat" followed by digits.
+    let parts: Vec<&str> = chat_handle.split(';').collect();
+    if let Some(last) = parts.last() {
+        if last.starts_with("chat") {
+            let digits = &last[4..];
+            return !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
+        }
+    }
+    false
+}
+
+pub fn normalize_handle(field: &str, value: &str) -> String {
+    let value = value.trim();
+    if value.is_empty() {
+        return String::new();
+    }
+    if field == "email_addresses" {
+        value.to_lowercase()
+    } else {
+        let digits = value
+            .chars()
+            .filter(char::is_ascii_digit)
+            .collect::<String>();
+        if digits.is_empty() {
+            return String::new();
+        }
+        // Normalize phone numbers to E.164 format assuming US numbers.
+        // If the digits already include a leading country code '1' and have 11 digits, keep it.
+        // Otherwise, prepend the US country code '1'.
+        if digits.len() == 11 && digits.starts_with('1') {
+            format!("+{}", digits)
+        } else {
+            format!("+1{}", digits)
+        }
+    }
+}
+
+// Extract the canonical chat identifier (last segment) from a GUID like "any;+;chat123".
+pub fn normalize_chat_guid(guid: &str) -> String {
+    guid.split(';').last().unwrap_or(guid).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_handle_phone() {
+        assert_eq!(normalize_handle("phone_numbers", "1234567890"), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "+11234567890"), "+11234567890");
+        assert_eq!(normalize_handle("phone_numbers", "234567890"), "+1234567890");
+    }
+
+    #[test]
+    fn test_normalize_handle_email() {
+        assert_eq!(normalize_handle("email_addresses", "JOHN@DOE.COM"), "john@doe.com");
+    }
+}
+
+pub fn process_group_chats_from_json(
+    memberships_json: &str,
+    messages: &[Message],
+) -> Result<HashMap<String, GrpChat>, String> {
+    #[derive(serde::Deserialize)]
+    struct GroupMembership {
+        chat_guid: String,
+        participants: Vec<String>,
+    }
+
+    let memberships: Vec<GroupMembership> = serde_json::from_str(memberships_json)
+        .map_err(|err| format!("cannot parse group memberships JSON: {}", err))?;
+
+    let mut group_chats = HashMap::new();
+
+    for membership in memberships {
+        if is_group_chat(&membership.chat_guid) {
+            let normalized_guid = normalize_chat_guid(&membership.chat_guid);
+            let chat_messages: Vec<Message> = messages
+                .iter()
+                .filter(|m| {
+                    if let Some(chat) = &m.chat {
+                        normalize_chat_guid(chat) == normalized_guid
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect();
+
+            group_chats.insert(
+                normalized_guid.clone(),
+                GrpChat {
+                    chat: Some(normalized_guid),
+                    messages: chat_messages,
+                    participants: {
+                // Normalize each participant (phone numbers or email addresses) using the existing helper.
+                // Email addresses are lower‑cased; phone numbers are normalized via normalize_handle.
+                let mut set = std::collections::HashSet::new();
+                for p in membership.participants {
+                    let normalized = if p.contains('@') {
+                        p.to_lowercase()
+                    } else {
+                        normalize_handle("phone_numbers", &p)
+                    };
+                    if !normalized.is_empty() {
+                        set.insert(normalized);
+                    }
+                }
+                set
+            },
+                },
+            );
+        }
+    }
+
+    Ok(group_chats)
+}
 
 pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
@@ -38,20 +166,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str) -> Result<ContactLookup, St
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
             {
-                let key = if field == "email_addresses" {
-                    value.to_lowercase()
-                } else {
-                    let digits = value
-                        .chars()
-                        .filter(char::is_ascii_digit)
-                        .collect::<String>();
-                    match digits.chars().next() {
-                        Some('1') => format!("+{}", digits),
-                        Some('+') => digits,
-                        Some(_) => format!("+1{}", digits),
-                        None => String::new(),
-                    }
-                };
+                let key = normalize_handle(field, value);
                 if !key.is_empty() {
                     addresses.insert(key, contact_struct.clone());
                 }

@@ -1,5 +1,58 @@
 use rusqlite::Connection;
+use std::collections::HashMap;
 use std::path::Path;
+
+
+pub fn get_all_group_memberships(chat_db: &Path) -> Result<String, String> {
+    #[derive(serde::Serialize)]
+    struct GroupMembership {
+        chat_guid: String,
+        participants: Vec<String>,
+    }
+
+    let connection = Connection::open(chat_db)
+        .map_err(|err| format!("cannot open chat database '{}': {}", chat_db.display(), err))?;
+
+    let mut stmt = connection
+        .prepare(
+            "SELECT c.guid, h.id 
+             FROM chat c 
+             JOIN chat_handle_join ch ON c.ROWID = ch.chat_id 
+             JOIN handle h ON ch.handle_id = h.ROWID",
+        )
+        .map_err(|err| format!("cannot prepare group membership query: {}", err))?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|err| format!("cannot query group memberships: {}", err))?;
+
+    let mut memberships: HashMap<String, Vec<String>> = HashMap::new();
+    for row in rows {
+        let (chat_guid, handle_id) = row.map_err(|err| format!("cannot read group membership row: {}", err))?;
+        
+        // Filter for group chats: GUID must follow pattern '...;...;chat<digits>...'
+        let parts: Vec<&str> = chat_guid.split(';').collect();
+        if parts.len() >= 3 && parts[2].starts_with("chat") && parts[2][5..].chars().all(|c| c.is_ascii_digit()) {
+            // Keep only the last segment (e.g., "chat123") for the chat GUID.
+        let trimmed_guid = chat_guid.split(';').last().unwrap_or(&chat_guid).to_string();
+        memberships.entry(trimmed_guid).or_default().push(handle_id);
+
+        }
+    }
+
+    let result: Vec<GroupMembership> = memberships
+        .into_iter()
+        .filter(|(_, participants)| participants.len() > 1)
+        .map(|(chat_guid, participants)| GroupMembership {
+            chat_guid,
+            participants,
+        })
+        .collect();
+
+    serde_json::to_string(&result).map_err(|err| format!("cannot serialize group memberships as JSON: {}", err))
+}
 
 pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
     #[derive(serde::Serialize)]

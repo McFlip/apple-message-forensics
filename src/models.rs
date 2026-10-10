@@ -16,7 +16,7 @@ pub struct Contact {
     pub record_type: Option<serde_json::Value>,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Message {
     pub timestamp: Option<DateTime<Utc>>,
     pub date_edited: Option<DateTime<Utc>>,
