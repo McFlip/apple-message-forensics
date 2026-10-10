@@ -37,7 +37,7 @@
     - [ ] Implement "Top Talkers" summary.
 - [ ] Message attachments
   - [ ] Copy attachments folder from working copy to report folder
-  - [ ] Strip `~/Library/Messages/` from beginnig of the path
+  - [ ] Strip `~/Library/Messages/` from beginning of the path
   - [ ] lowercase?
   - [ ] Re-encode `heic` media for web
   - [ ] vcf contact cards?
@@ -47,14 +47,10 @@
   - [ ] Print to PDF
   - [ ] Export to CSV
 - [ ] Group Chats
-  - [ ] Create `group.json` - filter on `messages.json` looking for "chat[NUM]" regex in `.chat` field
-  - [ ] Create group listing page and link in home.
-  - [ ] List groups where custodian is a member inside the custodian detail page.
-  - [ ] List DM thread seperately - DMs are just group chats with 2 members.
-- [ ] Message card
+  - [x] Create `group.json` - filter on `messages.json` looking for "chat[NUM]" regex in `.chat` field
+  - [x] Create group listing page and link in home.
+- [x] Message card
   - [x] Show `Sender -> Receiver`
-  - [ ] Rename `chat` to `follow thread [chatName]` for DM and `go to group chat` for group chats
-- [ ] Unkown contact page
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
