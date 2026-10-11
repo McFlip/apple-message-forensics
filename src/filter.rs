@@ -40,11 +40,10 @@ pub fn filter_by_contact_ids(
     allowed_ids: &HashSet<String>,
 ) -> String {
     filter_to_json(joined.into_iter().filter(|(_, contact_opt)| {
-        if let Some(contact) = contact_opt {
-            if let Some(uid) = &contact.contact_unique_id {
+        if let Some(contact) = contact_opt
+            && let Some(uid) = &contact.contact_unique_id {
                 return allowed_ids.contains(uid);
             }
-        }
         false
     }))
 }

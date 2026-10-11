@@ -5,7 +5,7 @@ use crate::models::{Contact, Message, MsgContactTuple};
 use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
     use crate::report::templates::{
-        all_messages_page, chat_thread_page, chats_list_page, contact_detail_page, contacts_list_page,
+        all_messages_page, chat_thread_page, chats_list_page, contacts_list_page,
         custodian_page, home_page, group_chats_page,
     };
 use serde_json;
@@ -28,17 +28,15 @@ fn is_contact_in_group_chat(
             };
 
             // Check normalized email array
-            if let Some(ref emails) = contact.normalized_email_addresses {
-                if emails.contains(&normalized_participant) {
+            if let Some(ref emails) = contact.normalized_email_addresses
+                && emails.contains(&normalized_participant) {
                     return true;
                 }
-            }
             // Check normalized phone array
-            if let Some(ref phones) = contact.normalized_phone_numbers {
-                if phones.contains(&normalized_participant) {
+            if let Some(ref phones) = contact.normalized_phone_numbers
+                && phones.contains(&normalized_participant) {
                     return true;
                 }
-            }
             false
         })
 }

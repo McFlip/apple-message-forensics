@@ -36,7 +36,7 @@ pub fn get_all_group_memberships(chat_db: &Path) -> Result<String, String> {
         let parts: Vec<&str> = chat_guid.split(';').collect();
         if parts.len() >= 3 && parts[2].starts_with("chat") && parts[2][5..].chars().all(|c| c.is_ascii_digit()) {
             // Keep only the last segment (e.g., "chat123") for the chat GUID.
-        let trimmed_guid = chat_guid.split(';').last().unwrap_or(&chat_guid).to_string();
+        let trimmed_guid = chat_guid.split(';').next_back().unwrap_or(&chat_guid).to_string();
         memberships.entry(trimmed_guid).or_default().push(handle_id);
 
         }

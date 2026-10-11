@@ -15,12 +15,10 @@ pub fn is_group_chat(chat_handle: &str) -> bool {
     // Chat GUIDs can contain semicolon‑separated components (e.g. "any;+;chat157232977552461316").
     // The actual chat identifier is the part after the last ';' that starts with "chat" followed by digits.
     let parts: Vec<&str> = chat_handle.split(';').collect();
-    if let Some(last) = parts.last() {
-        if last.starts_with("chat") {
-            let digits = &last[4..];
+    if let Some(last) = parts.last()
+        && let Some(digits) = last.strip_prefix("chat") {
             return !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
         }
-    }
     false
 }
 
@@ -46,7 +44,7 @@ let parsed = PhoneNumber::parse(value, None)
 
 // Extract the canonical chat identifier (last segment) from a GUID like "any;+;chat123".
 pub fn normalize_chat_guid(guid: &str) -> String {
-    guid.split(';').last().unwrap_or(guid).to_string()
+    guid.split(';').next_back().unwrap_or(guid).to_string()
 }
 
 #[cfg(test)]

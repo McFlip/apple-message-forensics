@@ -303,7 +303,7 @@ if let Err(err) = apple_message_forensics::report::generate(
             ));
 
             logger::info("Parsing contacts...");
-            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region.clone())
+            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region)
                 .expect("to parse contacts");
 
             logger::info("Parsing messages...");
