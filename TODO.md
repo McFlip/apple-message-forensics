@@ -30,9 +30,9 @@
 
 ### Report Content
 - [ ] Header Statistics:
-    - [ ] Add report generation timestamp (UTC and Local).
-    - [ ] Add tool version.
-    - [ ] Display active filter settings used for the current report.
+    - [x] Add report generation timestamp (UTC and Local).
+    - [x] Add tool version.
+    - [x] Display active filter settings used for the current report.
     - [ ] Add basic stats: Total messages, earliest message date, and latest message date.
     - [ ] Implement "Top Talkers" summary.
 - [ ] Message attachments
