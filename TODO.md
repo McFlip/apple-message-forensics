@@ -39,7 +39,7 @@
   - [x] Copy attachments folder from working copy to report folder
   - [x] Strip `~/Library/Messages/Attachments/` from beginning of the path
   - [x] URL encode
-  - [ ] Re-encode `heic` media for web
+  - [ ] Re-encode `heic` media for web - run this by the team
   - [x] vcf contact cards?
   - [ ] display inline with link to file? - run this by the team
 - [ ] Packaging
