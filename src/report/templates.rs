@@ -267,94 +267,92 @@ pub fn chats_list_page(meta: &CaseMetadata, chats: &[(String, Message)]) -> Mark
     )
 }
 
-
 pub fn chat_thread_page(
     meta: &CaseMetadata,
     chat_id: &str,
     messages: &[(Message, Option<Contact>)],
 ) -> Markup {
     html! {
-        (maud::DOCTYPE)
-        html {
-                                head {
-                                    meta charset="utf-8";
-                                    title { (chat_id) " - " (meta.report.title) }
-                                    link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
-                                    style { (css()) }
-                                }
+     (maud::DOCTYPE)
+     html {
+                             head {
+                                 meta charset="utf-8";
+                                 title { (chat_id) " - " (meta.report.title) }
+                                 link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+                                 style { (css()) }
+                             }
 
-            body {
-                div class="container" {
-                    h1 { "Chat Thread: " (chat_id) }
-                    a href="../index.html" { "← Back to Home" }
-                    " | "
-                    a href="../chats/index.html" { "Back to Chats" }
+         body {
+             div class="container" {
+                 h1 { "Chat Thread: " (chat_id) }
+                 a href="../index.html" { "← Back to Home" }
+                 " | "
+                 a href="../chats/index.html" { "Back to Chats" }
 
-                    div class="message-list" {
-                        @for (msg, contact) in messages {
-                            div class="message-item" {
-                                 div class="msg-header" {
-                                     span class="timestamp" {
-                                         (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string()))
-                                         @if let Some(edited) = &msg.date_edited {
-                                             span class="edited-info" {
-                                                 i class="fa-solid fa-pen" { }
-                                                 " Edited: " (edited.to_rfc3339())
-                                             }
-                                         }
-                                     }
-                                      div class="msg-status" {
-                                          @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
-                                              i class="fa-solid fa-pen-to-square" title="Draft" { }
-                                          }
-                                          @if msg.is_forward.unwrap_or(false) {
-                                              i class="fa-solid fa-share-from-square" title="Forwarded" { }
-                                          }
-                                          @if msg.is_delivered.unwrap_or(false) {
-                                              i class="fa-solid fa-check-double" title="Delivered" { }
-                                          }
-                                          @if msg.is_read.unwrap_or(false) {
-                                              i class="fa-solid fa-eye" title="Read" { }
+                 div class="message-list" {
+                     @for (msg, contact) in messages {
+                         div class="message-item" {
+                              div class="msg-header" {
+                                  span class="timestamp" {
+                                      (msg.timestamp.map(|t| t.to_rfc3339()).unwrap_or_else(|| "Unknown".to_string()))
+                                      @if let Some(edited) = &msg.date_edited {
+                                          span class="edited-info" {
+                                              i class="fa-solid fa-pen" { }
+                                              " Edited: " (edited.to_rfc3339())
                                           }
                                       }
-                                      div class="sender-flow" {
-                                          @if msg.is_from_me.unwrap_or(false) {
-                                              a href="../contacts/custodian.html" { "Custodian" }
-                                              i class="fa-solid fa-arrow-right" { }
-                                              @if let Some(c) = contact {
-                                                  a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
-                                                      (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
-                                                      " "
-                                                      (c.last_name.clone().unwrap_or_else(|| "".to_string()))
-                                                  }
-                                              } @else {
-                                                  span { (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
-                                              }
-                                          } @else {
-                                              @if let Some(c) = contact {
-                                                  a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
-                                                      (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
-                                                      " "
-                                                      (c.last_name.clone().unwrap_or_else(|| "".to_string()))
-                                                  }
-                                              } @else {
-                                                  span { (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
-                                              }
-                                              i class="fa-solid fa-arrow-right" { }
-                                              a href="../contacts/custodian.html" { "Custodian" }
-                                          }
-                                      }
-                                      @if let Some(chat_id) = &msg.chat {
-                                          span class="chat-link" {
-                                              a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
-                                          }
-                                      }
-
                                   }
-                                  div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                                   div class="msg-status" {
+                                       @if msg.is_from_me.unwrap_or(false) && !msg.is_sent.unwrap_or(true) {
+                                           i class="fa-solid fa-pen-to-square" title="Draft" { }
+                                       }
+                                       @if msg.is_forward.unwrap_or(false) {
+                                           i class="fa-solid fa-share-from-square" title="Forwarded" { }
+                                       }
+                                       @if msg.is_delivered.unwrap_or(false) {
+                                           i class="fa-solid fa-check-double" title="Delivered" { }
+                                       }
+                                       @if msg.is_read.unwrap_or(false) {
+                                           i class="fa-solid fa-eye" title="Read" { }
+                                       }
+                                   }
+                                   div class="sender-flow" {
+                                       @if msg.is_from_me.unwrap_or(false) {
+                                           a href="../contacts/custodian.html" { "Custodian" }
+                                           i class="fa-solid fa-arrow-right" { }
+                                           @if let Some(c) = contact {
+                                               a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                   (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                   " "
+                                                   (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                               }
+                                           } @else {
+                                               span { (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
+                                           }
+                                       } @else {
+                                           @if let Some(c) = contact {
+                                               a href=(format!("../contacts/contact_{}.html", c.contact_id.as_ref().unwrap_or(&serde_json::Value::Null))) {
+                                                   (c.first_name.clone().unwrap_or_else(|| "Unknown".to_string()))
+                                                   " "
+                                                   (c.last_name.clone().unwrap_or_else(|| "".to_string()))
+                                               }
+                                           } @else {
+                                               span { (msg.sender.clone().unwrap_or_else(|| "Unknown".to_string())) }
+                                           }
+                                           i class="fa-solid fa-arrow-right" { }
+                                           a href="../contacts/custodian.html" { "Custodian" }
+                                       }
+                                   }
+                                   @if let Some(chat_id) = &msg.chat {
+                                       span class="chat-link" {
+                                           a href=(format!("../chats/chat_{}.html", chat_id)) { "Chat: " (chat_id) }
+                                       }
+                                   }
+
+                                }
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
                             }
                         }
-
                     }
                 }
             }
@@ -491,6 +489,8 @@ fn css() -> String {
     .sender-flow i { font-size: 0.8em; color: #999; }
     .chat-link { font-size: 0.8em; }
     .chat-link a { text-decoration: none; color: #3498db; }
+    .attachment-link { margin-top: 8px; font-size: 0.85em; }
+    .attachment-link a { text-decoration: none; color: #3498db; display: flex; align-items: center; gap: 5px; }
     .text { margin-left: 10px; white-space: pre-wrap; }
     .chat-summary { display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #eee; }
     .chat-summary b { min-width: 150px; }
@@ -586,10 +586,29 @@ fn render_message_header(msg: &Message, contact: Option<&Contact>) -> Markup {
 }
 
 fn render_message_item(msg: &Message, contact: Option<&Contact>) -> Markup {
+    let attachment_info = msg.attachment.as_ref().map(|path| {
+        let stripped = path.replace("~/Library/Messages/Attachments/", "");
+        let filename = std::path::Path::new(&stripped)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Unknown File")
+            .to_string();
+        let url = format!("/attachments/{}", stripped);
+        (url, filename)
+    });
+
     html! {
         div class="message-item" {
             (render_message_header(msg, contact))
             div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+            @if let Some((url, filename)) = attachment_info {
+                div class="attachment-link" {
+                    a href=(url) {
+                        i class="fa-solid fa-paperclip" { }
+                        " View Attachment: " b { (filename) }
+                    }
+                }
+            }
         }
     }
 }

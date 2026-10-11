@@ -36,12 +36,12 @@
     - [ ] Add basic stats: Total messages, earliest message date, and latest message date.
     - [ ] Implement "Top Talkers" summary.
 - [ ] Message attachments
-  - [ ] Copy attachments folder from working copy to report folder
-  - [ ] Strip `~/Library/Messages/` from beginning of the path
-  - [ ] lowercase?
+  - [x] Copy attachments folder from working copy to report folder
+  - [x] Strip `~/Library/Messages/Attachments/` from beginning of the path
+  - [x] URL encode
   - [ ] Re-encode `heic` media for web
-  - [ ] vcf contact cards?
-  - [ ] display inline with link to file
+  - [x] vcf contact cards?
+  - [ ] display inline with link to file? - run this by the team
 - [ ] Packaging
   - [ ] Embedded Python with PowerShell script to run `http.server`
   - [ ] Print to PDF

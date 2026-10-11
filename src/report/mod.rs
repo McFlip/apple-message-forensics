@@ -41,6 +41,47 @@ fn is_contact_in_group_chat(
         })
 }
 
+fn copy_attachments(output_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let src = output_dir.join("evidence/working_copy/Library/Messages/Attachments");
+    let dst = output_dir.join("report/attachments");
+
+    if src.exists() {
+        if !dst.exists() {
+            fs::create_dir_all(&dst)?;
+        }
+        if let Ok(entries) = fs::read_dir(&src) {
+            for entry in entries {
+                let entry = entry?;
+                let dest_path = dst.join(entry.file_name());
+                if entry.file_type()?.is_dir() {
+                    // For simplicity in this context, using a recursive copy helper or bash
+                    // Since we are in Rust, we'll use a simple recursive function if needed, 
+                    // but usually, we'd use a crate like `fs_extra`. 
+                    // To avoid adding dependencies, let's implement a simple recursive copy.
+                    copy_dir_all(&entry.path(), &dest_path)?;
+                } else {
+                    fs::copy(entry.path(), dest_path)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let dest_path = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &dest_path)?;
+        } else {
+            fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn generate(
     output_dir: PathBuf,
     meta_path: Option<PathBuf>,
@@ -52,6 +93,8 @@ pub fn generate(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
+
+    copy_attachments(&output_dir)?;
 
     let meta = if let Some(path) = meta_path {
         load_metadata(&path)?
