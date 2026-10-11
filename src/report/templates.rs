@@ -220,17 +220,20 @@ pub fn group_chats_page(
             h1 { "Group Chats" }
             a href="../index.html" { "← Back to Home" }
             @for (chat_id, gc) in group_chats {
-                div class="group-chat-section" {
-                    h2 { (chat_id) }
-                    p { "Participants: " b { (gc.participants.iter().cloned().collect::<Vec<_>>().join(", ")) } }
-                    @let msgs = chat_messages.get(chat_id).cloned().unwrap_or_default();
-                    @let sorted = {
-                        let mut v = msgs.clone();
-                        v.sort_by_key(|(m, _)| std::cmp::Reverse(m.timestamp));
-                        v
-                    };
-                    @for (msg, _) in sorted.iter().take(5) {
-                        (render_message_item(msg, None))
+                @if let Some(msgs) = chat_messages.get(chat_id) {
+                    @if !msgs.is_empty() {
+                        div class="group-chat-section" {
+                            h2 { (chat_id) }
+                            p { "Participants: " b { (gc.participants.iter().cloned().collect::<Vec<_>>().join(", ")) } }
+                            @let sorted = {
+                                let mut v = msgs.clone();
+                                v.sort_by_key(|(m, _)| std::cmp::Reverse(m.timestamp));
+                                v
+                            };
+                            @for (msg, _) in sorted.iter().take(5) {
+                                (render_message_item(msg, None))
+                            }
+                        }
                     }
                 }
             }
