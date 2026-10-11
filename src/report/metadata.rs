@@ -9,6 +9,14 @@ pub struct CaseMetadata {
     pub report: ReportInfo,
 }
 
+pub struct SystemMetadata {
+    pub generation_time: String,
+    pub version: String,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub filtered_contacts: Option<Vec<String>>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CaseInfo {
     pub name: String,

@@ -171,25 +171,29 @@ fn main() {
                 }
             }
             // Date filter second
-            match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
-                Ok(applied) => filtering_applied |= applied,
-                Err(err) => {
+                match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
+                    Ok(applied) => filtering_applied |= applied,
+                    Err(err) => {
+                        logger::error_fmt(format_args!("error: {err}"));
+                        std::process::exit(1);
+                    }
+                };
+
+                if let Err(err) = apple_message_forensics::report::generate(
+                    args.output.clone(),
+                    args.meta,
+                    filtering_applied,
+                    region,
+                    args.start,
+                    args.end,
+                    args.contact_ids_file,
+                ) {
                     logger::error_fmt(format_args!("error: {err}"));
                     std::process::exit(1);
                 }
-            };
-
-if let Err(err) = apple_message_forensics::report::generate(
-                args.output.clone(),
-                args.meta,
-                filtering_applied,
-                region,
-            ) {
-                logger::error_fmt(format_args!("error: {err}"));
-                std::process::exit(1);
+                logger::info("Report generated successfully in output/report/index.html");
             }
-            logger::info("Report generated successfully in output/report/index.html");
-        }
+
         Some(Commands::Collect) | None => {
             // Standard collection and report flow
             let home_dir = default_home_dir();
@@ -351,18 +355,21 @@ if let Err(err) = apple_message_forensics::report::generate(
                 }
             };
 
-
             // Final step: Generate report automatically after collection
-if let Err(err) = apple_message_forensics::report::generate(
+            if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
                 args.meta,
                 filtering_applied,
                 region,
+                args.start,
+                args.end,
+                args.contact_ids_file,
             ) {
                 logger::error_fmt(format_args!("error: {err}"));
                 std::process::exit(1);
             }
             logger::info("Report generated successfully.");
+
         }
     }
 }

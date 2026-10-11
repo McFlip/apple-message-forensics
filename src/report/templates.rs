@@ -1,6 +1,6 @@
 use crate::models::{Contact, Message};
 use crate::processing::GrpChat;
-use crate::report::metadata::CaseMetadata;
+use crate::report::metadata::{CaseMetadata, SystemMetadata};
 use maud::{Markup, html};
 use std::collections::{HashMap, HashSet};
 
@@ -58,11 +58,26 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     )
 }
 
-pub fn home_page(meta: &CaseMetadata) -> Markup {
+pub fn home_page(meta: &CaseMetadata, system_meta: &SystemMetadata) -> Markup {
     page_layout(
         &meta.report.title,
         html! {
             h1 { (meta.report.title) }
+
+            div class="metadata-section" {
+                div class="grid" {
+                    div class="col" {
+                        h2 { "System Generated Metadata" }
+                        p { "Report Generated: " b { (system_meta.generation_time) } }
+                        p { "Tool Version: " b { (system_meta.version) } }
+                        p { "Start: " b { (system_meta.start_date.as_deref().unwrap_or("None")) } }
+                        p { "End: " b { (system_meta.end_date.as_deref().unwrap_or("None")) } }
+                        p { "Filtered Contacts: " b {
+                            (system_meta.filtered_contacts.as_ref().map(|c| c.join(", ")).unwrap_or_else(|| "None".to_string()))
+                        } }
+                    }
+                }
+            }
 
             div class="metadata-section" {
                 div class="grid" {

@@ -46,6 +46,9 @@ pub fn generate(
     meta_path: Option<PathBuf>,
     filtered: bool,
     region: Region,
+    start: Option<chrono::DateTime<chrono::Utc>>,
+    end: Option<chrono::DateTime<chrono::Utc>>,
+    contact_ids_file: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
@@ -76,8 +79,47 @@ pub fn generate(
         }
     };
 
+    // System Metadata
+    let generation_time = chrono::Utc::now().to_rfc3339();
+    let version = env!("CARGO_PKG_VERSION").to_string();
+    let start_date = start.map(|d| d.to_rfc3339());
+    let end_date = end.map(|d| d.to_rfc3339());
+
+    let mut filtered_contacts = None;
+    if let Some(ids_path) = &contact_ids_file {
+        let ids_content = fs::read_to_string(ids_path)?;
+        let ids: Vec<String> = ids_content.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+        
+        let json_dir = output_dir.join("json");
+        let addresses_json = fs::read_to_string(json_dir.join("addresses.json"))?;
+        let addresses: Vec<Contact> = serde_json::from_str(&addresses_json)?;
+        
+        let mut names = Vec::new();
+        for id in ids {
+            if let Some(contact) = addresses.iter().find(|c| c.contact_unique_id.as_ref() == Some(&id)) {
+                let first = contact.first_name.as_deref().unwrap_or("");
+                let last = contact.last_name.as_deref().unwrap_or("");
+                let full_name = format!("{} {}", first, last).trim().to_string();
+                if !full_name.is_empty() {
+                    names.push(full_name);
+                }
+            }
+        }
+        if !names.is_empty() {
+            filtered_contacts = Some(names);
+        }
+    }
+
+    let system_meta = metadata::SystemMetadata {
+        generation_time,
+        version,
+        start_date,
+        end_date,
+        filtered_contacts,
+    };
+
     // Home page
-    let markup = home_page(&meta);
+    let markup = home_page(&meta, &system_meta);
     fs::write(report_dir.join("index.html"), markup.into_string())?;
 
     // Process contacts and messages
@@ -259,7 +301,7 @@ use std::path::PathBuf;
         )
         .expect("write filtered messages");
 
-        generate(temp_dir.path().to_path_buf(), None, true, Region::US).expect("generate filtered report");
+        generate(temp_dir.path().to_path_buf(), None, true, Region::US, None, None, None).expect("generate filtered report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -285,7 +327,7 @@ use std::path::PathBuf;
         )
         .expect("write joined messages");
 
-        generate(temp_dir.path().to_path_buf(), None, false, Region::US).expect("generate report");
+        generate(temp_dir.path().to_path_buf(), None, false, Region::US, None, None, None).expect("generate report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
