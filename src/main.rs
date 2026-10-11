@@ -3,9 +3,9 @@ use apple_message_forensics::logger;
 use apple_message_forensics::setup_output_dir;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
-use std::error::Error;
-use std::collections::HashSet;
 use rlibphonenumber::Region;
+use std::collections::HashSet;
+use std::error::Error;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
@@ -42,6 +42,8 @@ struct Args {
 enum Commands {
     /// Only generate a report from existing collection
     Report,
+    /// Package vault and report for delivery
+    Deliver,
     /// Collect everything and generate report (default behavior)
     Collect,
 }
@@ -77,7 +79,9 @@ fn filter_joined_messages(
     let joined_json = std::fs::read_to_string(source_path)?;
     let joined = apple_message_forensics::unmarshal_msg_contact_tuples_from_json(&joined_json)?;
     let filtered_json = match (start, end) {
-        (Some(start), Some(end)) => apple_message_forensics::filter_date_between(joined, start, end),
+        (Some(start), Some(end)) => {
+            apple_message_forensics::filter_date_between(joined, start, end)
+        }
         (Some(start), None) => apple_message_forensics::filter_date_start(joined, start),
         (None, Some(end)) => apple_message_forensics::filter_date_end(joined, end),
         (None, None) => unreachable!("filter dates were checked before parsing joined messages"),
@@ -85,7 +89,6 @@ fn filter_joined_messages(
     std::fs::write(json_dir.join("filtered.json"), filtered_json)?;
     Ok(true)
 }
-
 
 fn load_contact_ids(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
     let content = std::fs::read_to_string(path)?;
@@ -97,7 +100,7 @@ fn load_contact_ids(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
         }
     }
     Ok(ids)
-    }
+}
 
 pub(crate) fn clean_stale_filtered(json_dir: &Path) {
     let filtered_path = json_dir.join("filtered.json");
@@ -107,12 +110,7 @@ pub(crate) fn clean_stale_filtered(json_dir: &Path) {
     }
 }
 
-
-
-fn filter_by_contact_ids(
-    json_dir: &Path,
-    ids_path: &Path,
-) -> Result<bool, Box<dyn Error>> {
+fn filter_by_contact_ids(json_dir: &Path, ids_path: &Path) -> Result<bool, Box<dyn Error>> {
     let ids = load_contact_ids(ids_path)?;
     if ids.is_empty() {
         return Ok(false);
@@ -123,9 +121,6 @@ fn filter_by_contact_ids(
     std::fs::write(json_dir.join("filtered.json"), filtered_json)?;
     Ok(true)
 }
-
-
-
 
 fn main() {
     let args = Args::parse();
@@ -171,29 +166,82 @@ fn main() {
                 }
             }
             // Date filter second
-                match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
-                    Ok(applied) => filtering_applied |= applied,
-                    Err(err) => {
-                        logger::error_fmt(format_args!("error: {err}"));
-                        std::process::exit(1);
-                    }
-                };
-
-                if let Err(err) = apple_message_forensics::report::generate(
-                    args.output.clone(),
-                    args.meta,
-                    filtering_applied,
-                    region,
-                    args.start,
-                    args.end,
-                    args.contact_ids_file,
-                ) {
+            match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
+                Ok(applied) => filtering_applied |= applied,
+                Err(err) => {
                     logger::error_fmt(format_args!("error: {err}"));
                     std::process::exit(1);
                 }
-                logger::info("Report generated successfully in output/report/index.html");
+            };
+
+            if let Err(err) = apple_message_forensics::report::generate(
+                args.output.clone(),
+                args.meta,
+                filtering_applied,
+                region,
+                args.start,
+                args.end,
+                args.contact_ids_file,
+            ) {
+                logger::error_fmt(format_args!("error: {err}"));
+                std::process::exit(1);
+            }
+            logger::info("Report generated successfully in output/report/index.html");
+        }
+
+        Some(Commands::Deliver) => {
+            // Deliver command – package the vault and report for handoff
+            let vault_path = args.output.join("evidence").join("vault").join("vault.zip");
+            if !vault_path.exists() {
+                logger::error("Vault archive not found. Please run collection first.");
+                std::process::exit(1);
             }
 
+            let report_dir = args.output.join("report");
+            if !report_dir.is_dir() {
+                logger::error("Report directory does not exist. Please generate a report first.");
+                std::process::exit(1);
+            }
+
+            // Ensure the report directory is not empty
+            let mut entries = match std::fs::read_dir(&report_dir) {
+                Ok(e) => e,
+                Err(e) => {
+                    logger::error_fmt(format_args!("cannot read report directory: {}", e));
+                    std::process::exit(1);
+                }
+            };
+            if entries.next().is_none() {
+                logger::error("Report directory is empty. Generate a report before delivering.");
+                std::process::exit(1);
+            }
+
+            let delivery_dir = args.output.join("delivery");
+            if let Err(e) = std::fs::create_dir_all(&delivery_dir) {
+                logger::error_fmt(format_args!("cannot create delivery directory: {}", e));
+                std::process::exit(1);
+            }
+
+            // Generate SHA256 manifest for the report directory
+            if let Err(e) = apple_message_forensics::write_report_hashes(&report_dir) {
+                logger::error_fmt(format_args!("cannot create report hash manifest: {}", e));
+                std::process::exit(1);
+            }
+
+            // Archive the report folder
+            let report_zip = delivery_dir.join("report.zip");
+            apple_message_forensics::archive_evidence(report_dir.as_path(), report_zip.as_path())
+                .expect("report archive to be created");
+
+            // Copy the existing vault.zip into delivery folder
+            let dest_vault = delivery_dir.join("vault.zip");
+            std::fs::copy(&vault_path, &dest_vault).expect("copy vault to delivery");
+
+            logger::info_fmt(format_args!(
+                "Delivery package created at {}",
+                delivery_dir.display()
+            ));
+        }
         Some(Commands::Collect) | None => {
             // Standard collection and report flow
             let home_dir = default_home_dir();
@@ -307,8 +355,9 @@ fn main() {
             ));
 
             logger::info("Parsing contacts...");
-            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region)
-                .expect("to parse contacts");
+            let contacts =
+                apple_message_forensics::unmarshal_addresses_from_json(&addresses, region)
+                    .expect("to parse contacts");
 
             logger::info("Parsing messages...");
             let messages_json =
@@ -369,14 +418,15 @@ fn main() {
                 std::process::exit(1);
             }
             logger::info("Report generated successfully.");
-
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Args, Commands, filter_joined_messages, clean_stale_filtered, filter_by_contact_ids};
+    use super::{
+        Args, Commands, clean_stale_filtered, filter_by_contact_ids, filter_joined_messages,
+    };
     use chrono::{DateTime, Utc};
     use clap::Parser;
     use serde_json::json;
@@ -504,7 +554,8 @@ mod tests {
                 "message": "msg B1",
                 "contact": { "contact_unique_id": "B" }
             }
-        ]).to_string();
+        ])
+        .to_string();
         fs::write(json_dir.join("joined.json"), joined).expect("write joined");
 
         // Stale filtered.json that should be cleared by the cleanup step
@@ -516,7 +567,10 @@ mod tests {
 
         // Run the cleanup that the binary performs before any filtering
         clean_stale_filtered(&json_dir);
-        assert!(!json_dir.join("filtered.json").exists(), "stale filtered.json should be removed");
+        assert!(
+            !json_dir.join("filtered.json").exists(),
+            "stale filtered.json should be removed"
+        );
 
         // Apply contact‑ID filter
         let contact_applied = filter_by_contact_ids(&json_dir, &ids_path).expect("contact filter");
@@ -526,13 +580,20 @@ mod tests {
         let start = DateTime::parse_from_rfc3339("2024-01-04T00:00:00Z")
             .expect("parse start")
             .with_timezone(&Utc);
-        let date_applied = filter_joined_messages(&json_dir, Some(start), None).expect("date filter");
+        let date_applied =
+            filter_joined_messages(&json_dir, Some(start), None).expect("date filter");
         assert!(date_applied, "date filter should report applied");
 
         // Verify the final filtered.json contains exactly the A‑message from 2024‑01‑05
-        let final_json = fs::read_to_string(json_dir.join("filtered.json")).expect("read final filtered");
-        let msgs: Vec<serde_json::Value> = serde_json::from_str(&final_json).expect("parse final json");
-        assert_eq!(msgs.len(), 1, "expected a single message after combined filters");
+        let final_json =
+            fs::read_to_string(json_dir.join("filtered.json")).expect("read final filtered");
+        let msgs: Vec<serde_json::Value> =
+            serde_json::from_str(&final_json).expect("parse final json");
+        assert_eq!(
+            msgs.len(),
+            1,
+            "expected a single message after combined filters"
+        );
         assert_eq!(msgs[0]["message"].as_str().unwrap(), "msg A2");
     }
 }

@@ -4,44 +4,46 @@ pub mod templates;
 use crate::models::{Contact, Message, MsgContactTuple};
 use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
-    use crate::report::templates::{
-        all_messages_page, chat_thread_page, chats_list_page, contacts_list_page,
-        custodian_page, home_page, group_chats_page,
-    };
+use crate::report::templates::{
+    all_messages_page, chat_thread_page, chats_list_page, contacts_list_page, custodian_page,
+    group_chats_page, home_page,
+};
+use rlibphonenumber::Region;
 use serde_json;
 use std::collections::HashMap;
-use rlibphonenumber::Region;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn is_contact_in_group_chat(
     contact: &crate::models::Contact,
     gc: &crate::processing::GrpChat,
     region: Region,
 ) -> bool {
-        gc.participants.iter().any(|participant| {
-            // Normalize the participant identifier (phone or email) using the same rules as contacts.
-            let normalized_participant = if participant.contains('@') {
-                participant.to_lowercase()
-            } else {
-                crate::processing::normalize_handle("phone_numbers", participant, region)
-            };
+    gc.participants.iter().any(|participant| {
+        // Normalize the participant identifier (phone or email) using the same rules as contacts.
+        let normalized_participant = if participant.contains('@') {
+            participant.to_lowercase()
+        } else {
+            crate::processing::normalize_handle("phone_numbers", participant, region)
+        };
 
-            // Check normalized email array
-            if let Some(ref emails) = contact.normalized_email_addresses
-                && emails.contains(&normalized_participant) {
-                    return true;
-                }
-            // Check normalized phone array
-            if let Some(ref phones) = contact.normalized_phone_numbers
-                && phones.contains(&normalized_participant) {
-                    return true;
-                }
-            false
-        })
+        // Check normalized email array
+        if let Some(ref emails) = contact.normalized_email_addresses
+            && emails.contains(&normalized_participant)
+        {
+            return true;
+        }
+        // Check normalized phone array
+        if let Some(ref phones) = contact.normalized_phone_numbers
+            && phones.contains(&normalized_participant)
+        {
+            return true;
+        }
+        false
+    })
 }
 
-fn copy_attachments(output_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn copy_attachments(output_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let src = output_dir.join("evidence/working_copy/Library/Messages/Attachments");
     let dst = output_dir.join("report/attachments");
 
@@ -55,8 +57,8 @@ fn copy_attachments(output_dir: &PathBuf) -> Result<(), Box<dyn std::error::Erro
                 let dest_path = dst.join(entry.file_name());
                 if entry.file_type()?.is_dir() {
                     // For simplicity in this context, using a recursive copy helper or bash
-                    // Since we are in Rust, we'll use a simple recursive function if needed, 
-                    // but usually, we'd use a crate like `fs_extra`. 
+                    // Since we are in Rust, we'll use a simple recursive function if needed,
+                    // but usually, we'd use a crate like `fs_extra`.
                     // To avoid adding dependencies, let's implement a simple recursive copy.
                     copy_dir_all(&entry.path(), &dest_path)?;
                 } else {
@@ -131,15 +133,22 @@ pub fn generate(
     let mut filtered_contacts = None;
     if let Some(ids_path) = &contact_ids_file {
         let ids_content = fs::read_to_string(ids_path)?;
-        let ids: Vec<String> = ids_content.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
-        
+        let ids: Vec<String> = ids_content
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+
         let json_dir = output_dir.join("json");
         let addresses_json = fs::read_to_string(json_dir.join("addresses.json"))?;
         let addresses: Vec<Contact> = serde_json::from_str(&addresses_json)?;
-        
+
         let mut names = Vec::new();
         for id in ids {
-            if let Some(contact) = addresses.iter().find(|c| c.contact_unique_id.as_ref() == Some(&id)) {
+            if let Some(contact) = addresses
+                .iter()
+                .find(|c| c.contact_unique_id.as_ref() == Some(&id))
+            {
                 let first = contact.first_name.as_deref().unwrap_or("");
                 let last = contact.last_name.as_deref().unwrap_or("");
                 let full_name = format!("{} {}", first, last).trim().to_string();
@@ -240,7 +249,6 @@ pub fn generate(
         )?;
     }
 
-
     let chats_dir = report_dir.join("chats");
     fs::create_dir_all(&chats_dir)?;
 
@@ -280,7 +288,10 @@ pub fn generate(
 
     // Group Chats summary page
     let group_chats_markup = group_chats_page(&meta, &group_chats, &chat_groups);
-    fs::write(report_dir.join("group_chats.html"), group_chats_markup.into_string())?;
+    fs::write(
+        report_dir.join("group_chats.html"),
+        group_chats_markup.into_string(),
+    )?;
     let messages_dir = report_dir.join("messages");
     fs::create_dir_all(&messages_dir)?;
 
@@ -313,7 +324,7 @@ mod tests {
     use crate::processing::GrpChat;
     use serde_json::json;
     use std::collections::HashSet;
-use std::path::PathBuf;
+    use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]
@@ -344,7 +355,16 @@ use std::path::PathBuf;
         )
         .expect("write filtered messages");
 
-        generate(temp_dir.path().to_path_buf(), None, true, Region::US, None, None, None).expect("generate filtered report");
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            true,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate filtered report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -370,7 +390,16 @@ use std::path::PathBuf;
         )
         .expect("write joined messages");
 
-        generate(temp_dir.path().to_path_buf(), None, false, Region::US, None, None, None).expect("generate report");
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            false,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate report");
 
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
@@ -392,7 +421,10 @@ use std::path::PathBuf;
             phone_numbers: Some("1234567890 | 9876543210".to_string()),
             email_addresses: Some("john@doe.com".to_string()),
             normalized_email_addresses: None,
-            normalized_phone_numbers: Some(vec!["+11234567890".to_string(), "+19876543210".to_string()]),
+            normalized_phone_numbers: Some(vec![
+                "+11234567890".to_string(),
+                "+19876543210".to_string(),
+            ]),
         };
 
         let mut participants = HashSet::new();

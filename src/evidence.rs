@@ -54,6 +54,7 @@ pub fn setup_output_dir(output: &PathBuf) -> Result<(), String> {
         output.join("json"),
         output.join("report"),
         output.join("logs"),
+        output.join("delivery"),
     ];
 
     for directory in directories {
@@ -245,6 +246,81 @@ pub fn write_evidence_hashes(home_dir: &Path, output_dir: &Path) -> Result<PathB
             )
         })?;
     }
+    set_read_only(&out_file_path).map_err(|err| {
+        format!(
+            "cannot set read-only permissions on manifest file {}: {}",
+            out_file_path.display(),
+            err
+        )
+    })?;
+
+    Ok(out_file_path)
+}
+
+pub fn write_report_hashes(report_dir: &Path) -> Result<PathBuf, String> {
+    let out_file_path = report_dir.join("hash_manifest.txt");
+    let mut manifest_entries: Vec<(String, String)> = Vec::new();
+
+    fn visit_report_directory(
+        dir: &Path,
+        base: &Path,
+        entries: &mut Vec<(String, String)>,
+    ) -> Result<(), String> {
+        let read_dir = fs::read_dir(dir)
+            .map_err(|err| format!("cannot read report directory '{}': {}", dir.display(), err))?;
+        for entry in read_dir {
+            let entry = entry.map_err(|err| {
+                format!(
+                    "cannot read an entry in report directory '{}': {}",
+                    dir.display(),
+                    err
+                )
+            })?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|err| {
+                format!("cannot inspect report path '{}': {}", path.display(), err)
+            })?;
+            if file_type.is_dir() {
+                visit_report_directory(&path, base, entries)?;
+            } else if file_type.is_file() {
+                let relative = path.strip_prefix(base).map_err(|err| {
+                    format!(
+                        "report path '{}' is not beneath report directory '{}': {}",
+                        path.display(),
+                        base.display(),
+                        err
+                    )
+                })?;
+                let hash = calculate_sha256(&path)?;
+                entries.push((hash, relative.display().to_string()));
+            }
+        }
+        Ok(())
+    }
+
+    visit_report_directory(report_dir, report_dir, &mut manifest_entries)?;
+
+    // Sort for deterministic output
+    manifest_entries.sort_by(|a, b| a.1.cmp(&b.1));
+
+    let mut out_file = fs::File::create(&out_file_path).map_err(|err| {
+        format!(
+            "cannot create hash manifest file '{}': {}",
+            out_file_path.display(),
+            err
+        )
+    })?;
+
+    for (hash, rel_path) in manifest_entries {
+        writeln!(out_file, "{}  {}", hash, rel_path).map_err(|err| {
+            format!(
+                "cannot write to hash manifest file '{}': {}",
+                out_file_path.display(),
+                err
+            )
+        })?;
+    }
+
     set_read_only(&out_file_path).map_err(|err| {
         format!(
             "cannot set read-only permissions on manifest file {}: {}",

@@ -40,3 +40,7 @@ filter_start: check clean
 filter_both: check clean
   cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2025-01-01T00:00:00Z --contact-ids-file tests/fixtures/mock_contact_id
   just serve
+
+# Deliver
+deliver: build
+  cargo run -- deliver

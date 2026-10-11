@@ -2,7 +2,6 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 
-
 pub fn get_all_group_memberships(chat_db: &Path) -> Result<String, String> {
     #[derive(serde::Serialize)]
     struct GroupMembership {
@@ -30,15 +29,22 @@ pub fn get_all_group_memberships(chat_db: &Path) -> Result<String, String> {
 
     let mut memberships: HashMap<String, Vec<String>> = HashMap::new();
     for row in rows {
-        let (chat_guid, handle_id) = row.map_err(|err| format!("cannot read group membership row: {}", err))?;
-        
+        let (chat_guid, handle_id) =
+            row.map_err(|err| format!("cannot read group membership row: {}", err))?;
+
         // Filter for group chats: GUID must follow pattern '...;...;chat<digits>...'
         let parts: Vec<&str> = chat_guid.split(';').collect();
-        if parts.len() >= 3 && parts[2].starts_with("chat") && parts[2][5..].chars().all(|c| c.is_ascii_digit()) {
+        if parts.len() >= 3
+            && parts[2].starts_with("chat")
+            && parts[2][5..].chars().all(|c| c.is_ascii_digit())
+        {
             // Keep only the last segment (e.g., "chat123") for the chat GUID.
-        let trimmed_guid = chat_guid.split(';').next_back().unwrap_or(&chat_guid).to_string();
-        memberships.entry(trimmed_guid).or_default().push(handle_id);
-
+            let trimmed_guid = chat_guid
+                .split(';')
+                .next_back()
+                .unwrap_or(&chat_guid)
+                .to_string();
+            memberships.entry(trimmed_guid).or_default().push(handle_id);
         }
     }
 
@@ -51,7 +57,8 @@ pub fn get_all_group_memberships(chat_db: &Path) -> Result<String, String> {
         })
         .collect();
 
-    serde_json::to_string(&result).map_err(|err| format!("cannot serialize group memberships as JSON: {}", err))
+    serde_json::to_string(&result)
+        .map_err(|err| format!("cannot serialize group memberships as JSON: {}", err))
 }
 
 pub fn get_all_handles(chat_db: &Path) -> Result<String, String> {
@@ -206,7 +213,6 @@ pub fn get_all_messages(chat_db: &Path) -> Result<String, String> {
         is_read: Option<bool>,
         is_forward: Option<bool>,
     }
-
 
     let connection = Connection::open(chat_db)
         .map_err(|err| format!("cannot open chat database '{}': {}", chat_db.display(), err))?;
