@@ -1,6 +1,7 @@
 use crate::models::MsgContactTuple;
 use crate::processing::marshal_msg_contact_tuple_to_json;
 use chrono::{DateTime, Utc};
+use std::collections::HashSet;
 
 pub fn filter_date_start(joined: Vec<MsgContactTuple>, start: DateTime<Utc>) -> String {
     filter_to_json(joined.into_iter().filter(|(message, _)| {
@@ -33,6 +34,21 @@ pub fn filter_date_between(
     }))
 }
 
+
+pub fn filter_by_contact_ids(
+    joined: Vec<MsgContactTuple>,
+    allowed_ids: &HashSet<String>,
+) -> String {
+    filter_to_json(joined.into_iter().filter(|(_, contact_opt)| {
+        if let Some(contact) = contact_opt {
+            if let Some(uid) = &contact.contact_unique_id {
+                return allowed_ids.contains(uid);
+            }
+        }
+        false
+    }))
+}
+
 fn filter_to_json(messages: impl Iterator<Item = MsgContactTuple>) -> String {
     let filtered = messages.collect::<Vec<_>>();
     marshal_msg_contact_tuple_to_json(&filtered).to_string()
@@ -42,7 +58,8 @@ fn filter_to_json(messages: impl Iterator<Item = MsgContactTuple>) -> String {
 mod tests {
     use super::{filter_date_between, filter_date_end, filter_date_start};
     use crate::models::{Message, MsgContactTuple};
-    use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
+use std::collections::HashSet;
 
     fn date(value: &str) -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(value)

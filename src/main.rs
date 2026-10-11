@@ -4,9 +4,9 @@ use apple_message_forensics::setup_output_dir;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::collections::HashSet;
 use rlibphonenumber::Region;
-use std::process;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
@@ -23,12 +23,17 @@ struct Args {
     #[arg(long, value_name = "DATE", global = true)]
     start: Option<DateTime<Utc>>,
 
-    /// Country/region code used for phone‑number parsing (default: US)
-    #[arg(long, default_value = "US")]
-    region: String,
     /// Include messages on or before this RFC 3339 date and time
     #[arg(long, value_name = "DATE", global = true)]
     end: Option<DateTime<Utc>>,
+
+    /// Country/region code used for phone‑number parsing (default: US)
+    #[arg(long, default_value = "US")]
+    region: String,
+    /// Path to a plain‑text file containing contact_unique_id values (one per line) to include
+    #[arg(long, value_name = "FILE", global = true)]
+    contact_ids_file: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -46,7 +51,7 @@ fn default_home_dir() -> PathBuf {
         Some(home) => PathBuf::from(home),
         None => {
             logger::error("HOME environment variable is not set");
-            process::exit(1);
+            std::process::exit(1);
         }
     }
 }
@@ -63,22 +68,50 @@ fn filter_joined_messages(
     if start.is_none() && end.is_none() {
         return Ok(false);
     }
-
     let joined_json = std::fs::read_to_string(json_dir.join("joined.json"))?;
     let joined = apple_message_forensics::unmarshal_msg_contact_tuples_from_json(&joined_json)?;
-
     let filtered_json = match (start, end) {
-        (Some(start), Some(end)) => {
-            apple_message_forensics::filter_date_between(joined, start, end)
-        }
+        (Some(start), Some(end)) => apple_message_forensics::filter_date_between(joined, start, end),
         (Some(start), None) => apple_message_forensics::filter_date_start(joined, start),
         (None, Some(end)) => apple_message_forensics::filter_date_end(joined, end),
         (None, None) => unreachable!("filter dates were checked before parsing joined messages"),
     };
-
     std::fs::write(json_dir.join("filtered.json"), filtered_json)?;
     Ok(true)
 }
+
+
+fn load_contact_ids(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
+    let content = std::fs::read_to_string(path)?;
+    let mut ids = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            ids.insert(trimmed.to_owned());
+        }
+    }
+    Ok(ids)
+    }
+
+
+
+fn filter_by_contact_ids(
+    json_dir: &Path,
+    ids_path: &Path,
+) -> Result<bool, Box<dyn Error>> {
+    let ids = load_contact_ids(ids_path)?;
+    if ids.is_empty() {
+        return Ok(false);
+    }
+    let joined_json = std::fs::read_to_string(json_dir.join("joined.json"))?;
+    let joined = apple_message_forensics::unmarshal_msg_contact_tuples_from_json(&joined_json)?;
+    let filtered_json = apple_message_forensics::filter_by_contact_ids(joined, &ids);
+    std::fs::write(json_dir.join("filtered.json"), filtered_json)?;
+    Ok(true)
+}
+
+
+
 
 fn main() {
     let args = Args::parse();
@@ -86,7 +119,7 @@ fn main() {
         Ok(r) => r,
         Err(_) => {
             logger::error_fmt(format_args!("Invalid region code: {}", args.region));
-            process::exit(1);
+            std::process::exit(1);
         }
     };
 
@@ -95,7 +128,7 @@ fn main() {
             // Report only mode
             if !args.output.exists() {
                 logger::error("Output directory does not exist. Please run collection first.");
-                process::exit(1);
+                std::process::exit(1);
             }
 
             let joined_path = args.output.join("json").join("joined.json");
@@ -103,21 +136,33 @@ fn main() {
                 logger::error(
                     "Error: joined.json not found. Please collect and process evidence before running the report.",
                 );
-                process::exit(1);
+                std::process::exit(1);
             }
 
             logger::info_fmt(format_args!(
                 "Generating report from existing collection at {}...",
                 args.output.display()
             ));
-            let filtering_applied =
-                match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
-                    Ok(applied) => applied,
+            let mut filtering_applied = false;
+            // Contact filter first, if requested
+            if let Some(ids_path) = &args.contact_ids_file {
+                match filter_by_contact_ids(&args.output.join("json"), ids_path) {
+                    Ok(applied) => filtering_applied |= applied,
                     Err(err) => {
                         logger::error_fmt(format_args!("error: {err}"));
-                        process::exit(1);
+                        std::process::exit(1);
                     }
-                };
+                }
+            }
+            // Date filter second
+            match filter_joined_messages(&args.output.join("json"), args.start, args.end) {
+                Ok(applied) => filtering_applied |= applied,
+                Err(err) => {
+                    logger::error_fmt(format_args!("error: {err}"));
+                    std::process::exit(1);
+                }
+            };
+
 if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
                 args.meta,
@@ -125,7 +170,7 @@ if let Err(err) = apple_message_forensics::report::generate(
                 region,
             ) {
                 logger::error_fmt(format_args!("error: {err}"));
-                process::exit(1);
+                std::process::exit(1);
             }
             logger::info("Report generated successfully in output/report/index.html");
         }
@@ -143,7 +188,7 @@ if let Err(err) = apple_message_forensics::report::generate(
                     logger::error(
                         "hint: verify that the source is a valid iMessage chat database.",
                     );
-                    process::exit(1);
+                    std::process::exit(1);
                 }
             };
 
@@ -155,7 +200,7 @@ if let Err(err) = apple_message_forensics::report::generate(
             if let Err(err) = setup_output_dir(&args.output) {
                 logger::error_fmt(format_args!("error: {err}"));
                 logger::error("hint: specify a new or empty output directory with --output.");
-                process::exit(1);
+                std::process::exit(1);
             }
 
             logger::init(&args.output).expect("to initialize logger");
@@ -242,7 +287,7 @@ if let Err(err) = apple_message_forensics::report::generate(
             ));
 
             logger::info("Parsing contacts...");
-            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region)
+            let contacts = apple_message_forensics::unmarshal_addresses_from_json(&addresses, region.clone())
                 .expect("to parse contacts");
 
             logger::info("Parsing messages...");
@@ -268,13 +313,26 @@ if let Err(err) = apple_message_forensics::report::generate(
                 joined_path.display()
             ));
 
-            let filtering_applied = match filter_joined_messages(&json_dir, args.start, args.end) {
-                Ok(applied) => applied,
+            let mut filtering_applied = false;
+            // Contact filter first if provided
+            if let Some(ids_path) = &args.contact_ids_file {
+                match filter_by_contact_ids(&json_dir, ids_path) {
+                    Ok(applied) => filtering_applied |= applied,
+                    Err(err) => {
+                        logger::error_fmt(format_args!("error: {err}"));
+                        std::process::exit(1);
+                    }
+                }
+            }
+            // Date filter second
+            match filter_joined_messages(&json_dir, args.start, args.end) {
+                Ok(applied) => filtering_applied |= applied,
                 Err(err) => {
                     logger::error_fmt(format_args!("error: {err}"));
-                    process::exit(1);
+                    std::process::exit(1);
                 }
             };
+
 
             // Final step: Generate report automatically after collection
 if let Err(err) = apple_message_forensics::report::generate(
@@ -284,7 +342,7 @@ if let Err(err) = apple_message_forensics::report::generate(
                 region,
             ) {
                 logger::error_fmt(format_args!("error: {err}"));
-                process::exit(1);
+                std::process::exit(1);
             }
             logger::info("Report generated successfully.");
         }

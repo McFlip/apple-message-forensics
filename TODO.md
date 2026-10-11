@@ -26,7 +26,7 @@
 ## 📊 Report Enhancements
 ### Filtering Logic
 - [x] Date Range Filtering: Implement `--start` and `--end` flags to filter messages in the generated HTML report.
-- [ ] Contact Filtering: Implement `--filter-contacts` (comma-separated IDs) to limit the report to specific individuals.
+- [ ] Contact Filtering: Implement `--contact-ids-file` (plain‑text GUID list) to limit the report to specific individuals.
 
 ### Report Content
 - [ ] Header Statistics:

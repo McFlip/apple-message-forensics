@@ -259,32 +259,31 @@ If you only specify
 
 All dates are inclusive.
 
-### Specify Contact
+### Specify Contact IDs File
 
-You can filter by contact(s) for the report.
-All data is collected every time, so these switches have no effect on the `collect` subcommand.
+You can filter the report to **only include** messages belonging to specific contacts. Provide a plain‑text file containing one `contact_unique_id` GUID per line.
 
-Messages are not linked to contacts, but `handles`.
+1. Run a collection to generate `addresses.json`.
+2. Locate the `contact_unique_id` values you need (they appear in `addresses.json`).
+3. Create a file, e.g. `contact_ids.txt`:
+   ```text
+   123E4567‑E89B‑12D3‑A456‑426614174000
+   987F6543‑E21A‑34C5‑B789‑123456789ABC
+   ```
+4. Run the tool, specifying the file and any date range you want:
+   ```bash
+   apple-message-forensics --contact-ids-file path/to/contact_ids.txt --start "2024-01-01" --end "2024-01-31"
+   ```
+   The contact filter is applied **first**, then the date range filter.
 
-Handle
-: A phone # or email address associated with this chat
-
-A contact can have multiple handles, so we filter by contacts not handles to get all messages for a person.
-
-1. To find a contact first run a [collection](#collection-only---do-not-generate-report).
-2. Search the file `contacts.json` for the `contact_id`.
-3. Run a [report](#run-a-report-on-existing-collection) but specify contacts in a comma-separated list.
-
-```bash
-apple-message-forensics report --filter-contacts "1,2,3"
-```
+The flag works the same way as the existing `--start`/`--end` flags: if the file is omitted no contact filtering occurs.
 
 ### Combined filters
 
-You can combine date range and contact filters
+You can combine a date range with contact‑ID filtering:
 
 ```bash
-apple-message-forensics --start "2026-01-01" --end "2026-01-31" --filter-contacts "1,2,3"
+apple-message-forensics --start "2026-01-01" --end "2026-01-31" --contact-ids-file path/to/contact_ids.txt
 ```
 
 ### Change the Country/Region code from US
