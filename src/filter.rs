@@ -54,6 +54,7 @@ fn filter_to_json(messages: impl Iterator<Item = MsgContactTuple>) -> String {
 }
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
     use super::{filter_date_between, filter_date_end, filter_date_start};
     use crate::models::{Message, MsgContactTuple};
