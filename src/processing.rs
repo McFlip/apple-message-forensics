@@ -1,8 +1,7 @@
-use rlibphonenumber::{PhoneNumber, Region};
-use chrono::{DateTime, Utc};
 use crate::models::{Contact, ContactLookup, Message, MsgContactTuple};
+use chrono::{DateTime, Utc};
+use rlibphonenumber::{PhoneNumber, Region};
 use std::collections::{HashMap, HashSet};
-
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GrpChat {
@@ -16,9 +15,10 @@ pub fn is_group_chat(chat_handle: &str) -> bool {
     // The actual chat identifier is the part after the last ';' that starts with "chat" followed by digits.
     let parts: Vec<&str> = chat_handle.split(';').collect();
     if let Some(last) = parts.last()
-        && let Some(digits) = last.strip_prefix("chat") {
-            return !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
-        }
+        && let Some(digits) = last.strip_prefix("chat")
+    {
+        return !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
+    }
     false
 }
 
@@ -33,8 +33,8 @@ pub fn normalize_handle(field: &str, value: &str, region: Region) -> String {
         // Use rlibphonenumber to parse and format to E.164.
         // First try parsing without an explicit region (handles numbers with a leading '+').
         // If that fails, fall back to assuming US numbers.
-let parsed = PhoneNumber::parse(value, None)
-                     .or_else(|_| PhoneNumber::parse(value, Some(region)));
+        let parsed =
+            PhoneNumber::parse(value, None).or_else(|_| PhoneNumber::parse(value, Some(region)));
         match parsed {
             Ok(num) => format!("{}", num),
             Err(_) => String::new(),
@@ -45,23 +45,6 @@ let parsed = PhoneNumber::parse(value, None)
 // Extract the canonical chat identifier (last segment) from a GUID like "any;+;chat123".
 pub fn normalize_chat_guid(guid: &str) -> String {
     guid.split(';').next_back().unwrap_or(guid).to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_normalize_handle_phone() {
-        assert_eq!(normalize_handle("phone_numbers", "1234567890", Region::US), "+11234567890");
-        assert_eq!(normalize_handle("phone_numbers", "+11234567890", Region::US), "+11234567890");
-        assert_eq!(normalize_handle("phone_numbers", "234567890", Region::US), "+1234567890");
-    }
-
-    #[test]
-    fn test_normalize_handle_email() {
-        assert_eq!(normalize_handle("email_addresses", "JOHN@DOE.COM", Region::US), "john@doe.com");
-    }
 }
 
 pub fn process_group_chats_from_json(
@@ -101,21 +84,21 @@ pub fn process_group_chats_from_json(
                     chat: Some(normalized_guid),
                     messages: chat_messages,
                     participants: {
-                // Normalize each participant (phone numbers or email addresses) using the existing helper.
-                // Email addresses are lower‑cased; phone numbers are normalized via normalize_handle.
-                let mut set = std::collections::HashSet::new();
-                for p in membership.participants {
-                    let normalized = if p.contains('@') {
-                        p.to_lowercase()
-                    } else {
-                        normalize_handle("phone_numbers", &p, region)
-                    };
-                    if !normalized.is_empty() {
-                        set.insert(normalized);
-                    }
-                }
-                set
-            },
+                        // Normalize each participant (phone numbers or email addresses) using the existing helper.
+                        // Email addresses are lower‑cased; phone numbers are normalized via normalize_handle.
+                        let mut set = std::collections::HashSet::new();
+                        for p in membership.participants {
+                            let normalized = if p.contains('@') {
+                                p.to_lowercase()
+                            } else {
+                                normalize_handle("phone_numbers", &p, region)
+                            };
+                            if !normalized.is_empty() {
+                                set.insert(normalized);
+                            }
+                        }
+                        set
+                    },
                 },
             );
         }
@@ -124,7 +107,10 @@ pub fn process_group_chats_from_json(
     Ok(group_chats)
 }
 
-pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<ContactLookup, String> {
+pub fn unmarshal_addresses_from_json(
+    json_str: &str,
+    region: Region,
+) -> Result<ContactLookup, String> {
     let contacts: Vec<serde_json::Value> = serde_json::from_str(json_str)
         .map_err(|err| format!("cannot parse addresses JSON: {}", err))?;
     let mut addresses = HashMap::new();
@@ -134,12 +120,13 @@ pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<C
             .as_object()
             .ok_or_else(|| format!("address at index {} is not a JSON object", contact_index))?;
 
-        let mut contact_struct: Contact = serde_json::from_value(contact.clone()).map_err(|err| {
-            format!(
-                "cannot deserialize address at index {}: {}",
-                contact_index, err
-            )
-        })?;
+        let mut contact_struct: Contact =
+            serde_json::from_value(contact.clone()).map_err(|err| {
+                format!(
+                    "cannot deserialize address at index {}: {}",
+                    contact_index, err
+                )
+            })?;
         // Collect normalized handles for this contact
         let mut norm_emails: Vec<String> = Vec::new();
         let mut norm_phones: Vec<String> = Vec::new();
@@ -159,11 +146,7 @@ pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<C
                 ));
             };
 
-            for raw in values
-                .split('|')
-                .map(str::trim)
-                .filter(|v| !v.is_empty())
-            {
+            for raw in values.split('|').map(str::trim).filter(|v| !v.is_empty()) {
                 let normalized = normalize_handle(field, raw, region);
                 if !normalized.is_empty() {
                     all_keys.push(normalized.clone());
@@ -191,7 +174,6 @@ pub fn unmarshal_addresses_from_json(json_str: &str, region: Region) -> Result<C
         for key in all_keys {
             addresses.insert(key, contact_struct.clone());
         }
-
     }
 
     Ok(addresses)
@@ -330,12 +312,12 @@ pub fn join_messages_to_contacts(
                             format!("message at index {} is missing is_from_me", index)
                         })?;
                         let unclean_digits = if is_from_me {
-                            message
-                                .chat
-                                .clone()
-                                .ok_or_else(|| {
-                                    format!("message at index {} from custodian is missing chat handle", index)
-                                })?
+                            message.chat.clone().ok_or_else(|| {
+                                format!(
+                                    "message at index {} from custodian is missing chat handle",
+                                    index
+                                )
+                            })?
                         } else {
                             sender.to_string()
                         };
@@ -385,4 +367,33 @@ pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_js
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_handle_phone() {
+        assert_eq!(
+            normalize_handle("phone_numbers", "1234567890", Region::US),
+            "+11234567890"
+        );
+        assert_eq!(
+            normalize_handle("phone_numbers", "+11234567890", Region::US),
+            "+11234567890"
+        );
+        assert_eq!(
+            normalize_handle("phone_numbers", "234567890", Region::US),
+            "+1234567890"
+        );
+    }
+
+    #[test]
+    fn test_normalize_handle_email() {
+        assert_eq!(
+            normalize_handle("email_addresses", "JOHN@DOE.COM", Region::US),
+            "john@doe.com"
+        );
+    }
 }

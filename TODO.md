@@ -21,7 +21,7 @@
 ## 🛠️ Collection & Preservation
 - [x] Evidence Packaging: Implement the `evidence` ZIP collection, including all source artifacts (chat.db, WAL, SHM, attachments, and AddressBook data).
 - [x] Hashing: Implement MD5 and SHA256 hashing for all collected source files.
-- [ ] Delivery Module: Implement the `deliver` subcommand to create a final ZIP archive of the case with optional password protection and a manifest of hashes.
+- [x] Delivery Module: Implement the `deliver` subcommand to create a final ZIP archive of the case with optional password protection and a manifest of hashes.
 
 ## 📊 Report Enhancements
 ### Filtering Logic
@@ -61,6 +61,6 @@
 - [x] Validate timestamps against real data
 - [x] Validate date filters against real data
 - [x] Validate contact filter against real data
-- [ ] End-to-End Testing: Verify the full flow: `collect` $\rightarrow$ `report` (with filters) $\rightarrow$ `deliver`.
+- [x] End-to-End Testing: Verify the full flow: `collect` $\rightarrow$ `report` (with filters) $\rightarrow$ `deliver`.
   - NOTE: Added `just` commands for E2E. Everything working up to `deliver` - not implemented yet.
 
