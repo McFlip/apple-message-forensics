@@ -278,6 +278,8 @@ You can filter the report to **only include** messages belonging to specific con
 
 The flag works the same way as the existing `--start`/`--end` flags: if the file is omitted no contact filtering occurs.
 
+**Note:** `apple-message-forensics` removes any existing `filtered.json` before applying the first filter, so each execution starts from a clean state.
+
 ### Combined filters
 
 You can combine a date range with contact‑ID filtering:

@@ -68,7 +68,13 @@ fn filter_joined_messages(
     if start.is_none() && end.is_none() {
         return Ok(false);
     }
-    let joined_json = std::fs::read_to_string(json_dir.join("joined.json"))?;
+    // Use a previously‑filtered file if it exists; otherwise fall back to the original joined data.
+    let source_path = if json_dir.join("filtered.json").exists() {
+        json_dir.join("filtered.json")
+    } else {
+        json_dir.join("joined.json")
+    };
+    let joined_json = std::fs::read_to_string(source_path)?;
     let joined = apple_message_forensics::unmarshal_msg_contact_tuples_from_json(&joined_json)?;
     let filtered_json = match (start, end) {
         (Some(start), Some(end)) => apple_message_forensics::filter_date_between(joined, start, end),
@@ -92,6 +98,14 @@ fn load_contact_ids(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
     }
     Ok(ids)
     }
+
+pub(crate) fn clean_stale_filtered(json_dir: &Path) {
+    let filtered_path = json_dir.join("filtered.json");
+    if filtered_path.exists() {
+        // Ignore any error – failure to delete is non‑fatal.
+        let _ = std::fs::remove_file(&filtered_path);
+    }
+}
 
 
 
@@ -144,6 +158,8 @@ fn main() {
                 args.output.display()
             ));
             let mut filtering_applied = false;
+            // Ensure a fresh start – delete any stale filtered output from previous runs.
+            clean_stale_filtered(&args.output.join("json"));
             // Contact filter first, if requested
             if let Some(ids_path) = &args.contact_ids_file {
                 match filter_by_contact_ids(&args.output.join("json"), ids_path) {
@@ -314,6 +330,8 @@ if let Err(err) = apple_message_forensics::report::generate(
             ));
 
             let mut filtering_applied = false;
+            // Ensure a fresh start – delete any stale filtered output from previous runs.
+            clean_stale_filtered(&json_dir);
             // Contact filter first if provided
             if let Some(ids_path) = &args.contact_ids_file {
                 match filter_by_contact_ids(&json_dir, ids_path) {
@@ -351,7 +369,7 @@ if let Err(err) = apple_message_forensics::report::generate(
 
 #[cfg(test)]
 mod tests {
-    use super::{Args, Commands, filter_joined_messages};
+    use super::{Args, Commands, filter_joined_messages, clean_stale_filtered, filter_by_contact_ids};
     use chrono::{DateTime, Utc};
     use clap::Parser;
     use serde_json::json;
@@ -449,5 +467,65 @@ mod tests {
         let (_temp_dir, json_dir) = json_dir();
         assert!(!filter_joined_messages(&json_dir, None, None).expect("skip filtering"));
         assert!(!json_dir.join("filtered.json").exists());
+    }
+
+    #[test]
+    fn combined_filters_cleanup_and_apply() {
+        // Setup temporary output structure
+        let temp_dir = tempdir().expect("create temp dir");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create json dir");
+
+        // Minimal required files for the filtering pipeline
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write addresses");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
+
+        // Joined messages: two from contact A, one from contact B
+        let joined = serde_json::json!([
+            {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "message": "msg A1",
+                "contact": { "contact_unique_id": "A" }
+            },
+            {
+                "timestamp": "2024-01-05T00:00:00Z",
+                "message": "msg A2",
+                "contact": { "contact_unique_id": "A" }
+            },
+            {
+                "timestamp": "2024-01-03T00:00:00Z",
+                "message": "msg B1",
+                "contact": { "contact_unique_id": "B" }
+            }
+        ]).to_string();
+        fs::write(json_dir.join("joined.json"), joined).expect("write joined");
+
+        // Stale filtered.json that should be cleared by the cleanup step
+        fs::write(json_dir.join("filtered.json"), "[]").expect("write stale filtered");
+
+        // Contact IDs file containing only A
+        let ids_path = temp_dir.path().join("ids.txt");
+        fs::write(&ids_path, "A").expect("write ids file");
+
+        // Run the cleanup that the binary performs before any filtering
+        clean_stale_filtered(&json_dir);
+        assert!(!json_dir.join("filtered.json").exists(), "stale filtered.json should be removed");
+
+        // Apply contact‑ID filter
+        let contact_applied = filter_by_contact_ids(&json_dir, &ids_path).expect("contact filter");
+        assert!(contact_applied, "contact filter should report applied");
+
+        // Apply a date filter that keeps only messages on/after 2024‑01‑04
+        let start = DateTime::parse_from_rfc3339("2024-01-04T00:00:00Z")
+            .expect("parse start")
+            .with_timezone(&Utc);
+        let date_applied = filter_joined_messages(&json_dir, Some(start), None).expect("date filter");
+        assert!(date_applied, "date filter should report applied");
+
+        // Verify the final filtered.json contains exactly the A‑message from 2024‑01‑05
+        let final_json = fs::read_to_string(json_dir.join("filtered.json")).expect("read final filtered");
+        let msgs: Vec<serde_json::Value> = serde_json::from_str(&final_json).expect("parse final json");
+        assert_eq!(msgs.len(), 1, "expected a single message after combined filters");
+        assert_eq!(msgs[0]["message"].as_str().unwrap(), "msg A2");
     }
 }
