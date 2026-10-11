@@ -26,7 +26,7 @@
 ## 📊 Report Enhancements
 ### Filtering Logic
 - [x] Date Range Filtering: Implement `--start` and `--end` flags to filter messages in the generated HTML report.
-- [ ] Contact Filtering: Implement `--contact-ids-file` (plain‑text GUID list) to limit the report to specific individuals.
+- [x] Contact Filtering: Implement `--contact-ids-file` (plain‑text GUID list) to limit the report to specific individuals.
 
 ### Report Content
 - [ ] Header Statistics:
@@ -59,7 +59,8 @@
 ## 🧪 Verification
 - [x] Hash Validation: Ensure the generated hash files are compatible with `sha256sum -c`.
 - [ ] Validate timestamps against real data
-- [ ] Validate date filters against real data
-- [ ] Validate contact filter against real data
+- [x] Validate date filters against real data
+- [x] Validate contact filter against real data
 - [ ] End-to-End Testing: Verify the full flow: `collect` $\rightarrow$ `report` (with filters) $\rightarrow$ `deliver`.
+  - NOTE: Added `just` commands for E2E. Everything working up to `deliver` - not implemented yet.
 
