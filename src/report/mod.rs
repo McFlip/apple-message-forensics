@@ -316,7 +316,7 @@ pub fn generate(
     // Media page
     let media_data: Vec<MsgContactTuple> = joined_data
         .iter()
-        .filter(|(m, _)| m.attachment.as_ref().map(|p| attachment_media_kind(p)).is_some())
+        .filter(|(m, _)| m.attachment.as_ref().map(|p| attachment_media_kind(p).is_some()).unwrap_or(false))
         .map(|(m, c)| (m.clone(), c.clone()))
         .collect();
 
@@ -482,6 +482,7 @@ mod tests {
         assert!(media_report.contains("photo.jpg"));
         assert!(media_report.contains("clip.MOV"));
         assert!(!media_report.contains("report.pdf"));
+        assert!(!media_report.contains("document message"));
 
         let home = fs::read_to_string(temp_dir.path().join("report/index.html"))
             .expect("read generated home page");

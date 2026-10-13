@@ -479,7 +479,11 @@ pub fn all_messages_page(
 
                     div class="pagination" {
                         @if current_page > 1 {
-                            a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                            @if current_page - 1 == 1 {
+                                a href="index.html" { "Previous" }
+                            } @else {
+                                a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                            }
                         }
                         span { " Page " (current_page) " of " (total_pages) " " }
                         @if current_page < total_pages {
@@ -551,7 +555,11 @@ pub fn media_page(
 
                     div class="pagination" {
                         @if current_page > 1 {
-                            a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                            @if current_page - 1 == 1 {
+                                a href="index.html" { "Previous" }
+                            } @else {
+                                a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                            }
                         }
                         span { " Page " (current_page) " of " (total_pages) " " }
                         @if current_page < total_pages {
