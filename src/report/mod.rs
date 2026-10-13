@@ -5,8 +5,8 @@ use crate::models::{Contact, Message, MsgContactTuple};
 use crate::processing::unmarshal_msg_contact_tuples_from_json;
 use crate::report::metadata::{CaseMetadata, load_metadata};
 use crate::report::templates::{
-    all_messages_page, chat_thread_page, chats_list_page, contacts_list_page, custodian_page,
-    group_chats_page, home_page,
+    all_messages_page, attachment_media_kind, chat_thread_page, chats_list_page,
+    contacts_list_page, custodian_page, group_chats_page, home_page, media_page,
 };
 use rlibphonenumber::Region;
 use serde_json;
@@ -313,6 +313,33 @@ pub fn generate(
         fs::write(messages_dir.join(filename), msg_markup.into_string())?;
     }
 
+    // Media page
+    let media_data: Vec<MsgContactTuple> = joined_data
+        .iter()
+        .filter(|(m, _)| m.attachment.as_ref().map(|p| attachment_media_kind(p)).is_some())
+        .map(|(m, c)| (m.clone(), c.clone()))
+        .collect();
+
+    let media_dir = report_dir.join("media");
+    fs::create_dir_all(&media_dir)?;
+
+    let total_media = media_data.len();
+    let total_media_pages = total_media.div_ceil(PAGE_SIZE);
+
+    for page in 1..=total_media_pages {
+        let start = (page - 1) * PAGE_SIZE;
+        let end = std::cmp::min(start + PAGE_SIZE, total_media);
+        let page_messages = &media_data[start..end];
+
+        let media_markup = media_page(&meta, page_messages, page, total_media_pages);
+        let filename = if page == 1 {
+            "index.html".to_string()
+        } else {
+            format!("page_{}.html", page)
+        };
+        fs::write(media_dir.join(filename), media_markup.into_string())?;
+    }
+
     Ok(())
 }
 
@@ -404,6 +431,61 @@ mod tests {
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
         assert!(report.contains("unfiltered message"));
+    }
+
+    #[test]
+    fn generate_media_page_lists_only_media_attachments() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
+        fs::write(
+            json_dir.join("joined.json"),
+            json!([
+                {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "message": "photo message",
+                    "attachment": "~/Library/Messages/Attachments/photo.jpg",
+                    "contact": null
+                },
+                {
+                    "timestamp": "2024-01-02T00:00:00Z",
+                    "message": "video message",
+                    "attachment": "~/Library/Messages/Attachments/clip.MOV",
+                    "contact": null
+                },
+                {
+                    "timestamp": "2024-01-03T00:00:00Z",
+                    "message": "document message",
+                    "attachment": "~/Library/Messages/Attachments/report.pdf",
+                    "contact": null
+                }
+            ])
+            .to_string(),
+        )
+        .expect("write joined messages");
+
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            false,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate report");
+
+        let media_report = fs::read_to_string(temp_dir.path().join("report/media/index.html"))
+            .expect("read generated media report");
+        assert!(media_report.contains("photo.jpg"));
+        assert!(media_report.contains("clip.MOV"));
+        assert!(!media_report.contains("report.pdf"));
+
+        let home = fs::read_to_string(temp_dir.path().join("report/index.html"))
+            .expect("read generated home page");
+        assert!(home.contains("media/index.html"));
     }
 
     #[test]

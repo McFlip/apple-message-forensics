@@ -113,6 +113,8 @@ pub fn home_page(meta: &CaseMetadata, system_meta: &SystemMetadata) -> Markup {
                     a href="group_chats.html" { "View Group Chats" }
                     " | "
                     a href="messages/index.html" { "View All Messages" }
+                    " | "
+                    a href="media/index.html" { "View Media" }
                 }
             }
         },
@@ -360,6 +362,33 @@ pub fn chat_thread_page(
     }
 }
 
+pub fn attachment_media_kind(path: &str) -> Option<&str> {
+    const IMAGE_EXTENSIONS: [&str; 10] = [
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "heic",
+        "heif",
+        "bmp",
+        "tiff",
+        "tif",
+        "webp",
+    ];
+    const VIDEO_EXTENSIONS: [&str; 6] = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
+
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase());
+
+    match ext {
+        Some(e) if IMAGE_EXTENSIONS.contains(&e.as_str()) => Some("image"),
+        Some(e) if VIDEO_EXTENSIONS.contains(&e.as_str()) => Some("video"),
+        _ => None,
+    }
+}
+
 pub fn all_messages_page(
     meta: &CaseMetadata,
     messages: &[(Message, Option<Contact>)],
@@ -463,6 +492,78 @@ pub fn all_messages_page(
     }
 }
 
+pub fn media_page(
+    meta: &CaseMetadata,
+    messages: &[(Message, Option<Contact>)],
+    current_page: usize,
+    total_pages: usize,
+) -> Markup {
+    html! {
+        (maud::DOCTYPE)
+        html {
+            head {
+                meta charset="utf-8";
+                title { "Media - " (meta.report.title) }
+                link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+                style { (css()) }
+            }
+            body {
+                div class="container" {
+                    h1 { "Media" }
+                    a href="../index.html" { "← Back to Home" }
+
+                    div class="message-list" {
+                        @for (msg, contact) in messages {
+                            div class="message-item" {
+                                (render_message_header(msg, contact.as_ref()))
+                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                                @if let Some(path) = &msg.attachment {
+                                    @let stripped = path.replace("~/Library/Messages/Attachments/", "");
+                                    @let url = format!("/attachments/{}", stripped);
+                                    @let filename = std::path::Path::new(&stripped)
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .unwrap_or("Unknown File")
+                                        .to_string();
+                                    @if attachment_media_kind(path) == Some("image") {
+                                        div class="media-embed" {
+                                            a href=(url) {
+                                                img src=(url) alt=(filename);
+                                            }
+                                        }
+                                    } @else if attachment_media_kind(path) == Some("video") {
+                                        div class="media-embed" {
+                                            video src=(url) controls {
+                                                "Your browser does not support embedded video."
+                                            }
+                                            div class="attachment-link" {
+                                                a href=(url) {
+                                                    i class="fa-solid fa-paperclip" { }
+                                                    " View Attachment: " b { (filename) }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    div class="pagination" {
+                        @if current_page > 1 {
+                            a href=(format!("page_{}.html", current_page - 1)) { "Previous" }
+                        }
+                        span { " Page " (current_page) " of " (total_pages) " " }
+                        @if current_page < total_pages {
+                            a href=(format!("page_{}.html", current_page + 1)) { "Next" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn css() -> String {
     r#"
     body { font-family: sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f9; margin: 0; padding: 20px; }
@@ -491,6 +592,9 @@ fn css() -> String {
     .chat-link a { text-decoration: none; color: #3498db; }
     .attachment-link { margin-top: 8px; font-size: 0.85em; }
     .attachment-link a { text-decoration: none; color: #3498db; display: flex; align-items: center; gap: 5px; }
+    .media-embed { margin-top: 8px; }
+    .media-embed img { max-width: 90%; height: auto; }
+    .media-embed video { max-width: 90%; height: auto; }
     .text { margin-left: 10px; white-space: pre-wrap; }
     .chat-summary { display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #eee; }
     .chat-summary b { min-width: 150px; }
