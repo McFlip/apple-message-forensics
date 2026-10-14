@@ -1,5 +1,5 @@
 use crate::models::{Contact, Message};
-use crate::processing::GrpChat;
+use crate::processing::{GrpChat, Statistics};
 use crate::report::metadata::{CaseMetadata, SystemMetadata};
 use maud::{Markup, html};
 use std::collections::{HashMap, HashSet};
@@ -58,7 +58,11 @@ pub fn custodian_page(meta: &CaseMetadata, messages: &[Message]) -> Markup {
     )
 }
 
-pub fn home_page(meta: &CaseMetadata, system_meta: &SystemMetadata) -> Markup {
+pub fn home_page(
+    meta: &CaseMetadata,
+    system_meta: &SystemMetadata,
+    statistics: &Statistics,
+) -> Markup {
     page_layout(
         &meta.report.title,
         html! {
@@ -75,6 +79,22 @@ pub fn home_page(meta: &CaseMetadata, system_meta: &SystemMetadata) -> Markup {
                         p { "Filtered Contacts: " b {
                             (system_meta.filtered_contacts.as_ref().map(|c| c.join(", ")).unwrap_or_else(|| "None".to_string()))
                         } }
+                    }
+                }
+            }
+
+            div class="metadata-section" {
+                h2 { "Statistics" }
+                p { "Total Messages: " b { (statistics.total_messages) } }
+                p { "Total Attachments: " b { (statistics.total_attachments) } }
+                h3 { "Top Talkers" }
+                @if statistics.top_talkers.is_empty() {
+                    p { "No contacts found." }
+                } @else {
+                    ol {
+                        @for talker in &statistics.top_talkers {
+                            li { (talker.name) " (" (talker.message_count) " messages)" }
+                        }
                     }
                 }
             }

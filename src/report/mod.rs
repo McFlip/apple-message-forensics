@@ -2,7 +2,7 @@ pub mod metadata;
 pub mod templates;
 
 use crate::models::{Contact, Message, MsgContactTuple};
-use crate::processing::unmarshal_msg_contact_tuples_from_json;
+use crate::processing::{Statistics, statistics_from_json, unmarshal_msg_contact_tuples_from_json};
 use crate::report::metadata::{CaseMetadata, load_metadata};
 use crate::report::templates::{
     all_messages_page, attachment_media_kind, chat_thread_page, chats_list_page,
@@ -170,10 +170,6 @@ pub fn generate(
         filtered_contacts,
     };
 
-    // Home page
-    let markup = home_page(&meta, &system_meta);
-    fs::write(report_dir.join("index.html"), markup.into_string())?;
-
     // Process contacts and messages
     let json_dir = output_dir.join("json");
     let contacts_json = fs::read_to_string(json_dir.join("addresses.json"))?;
@@ -188,6 +184,14 @@ pub fn generate(
     let joined_json_str = fs::read_to_string(json_dir.join(joined_filename))?;
     let mut joined_data: Vec<MsgContactTuple> =
         unmarshal_msg_contact_tuples_from_json(&joined_json_str)?;
+    let stats_path = json_dir.join("stats.json");
+    let statistics_json = statistics_from_json(&joined_json_str)?;
+    fs::write(&stats_path, &statistics_json)?;
+    let statistics: Statistics = serde_json::from_str(&statistics_json)?;
+
+    // Home page
+    let markup = home_page(&meta, &system_meta, &statistics);
+    fs::write(report_dir.join("index.html"), markup.into_string())?;
 
     let messages: Vec<Message> = joined_data.iter().map(|(m, _)| m.clone()).collect();
     let group_chats =
@@ -431,6 +435,80 @@ mod tests {
         let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
             .expect("read generated message report");
         assert!(report.contains("unfiltered message"));
+
+        let stats: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(json_dir.join("stats.json")).expect("read generated statistics"),
+        )
+        .expect("parse generated statistics");
+        assert_eq!(stats["total_messages"], 1);
+        assert_eq!(stats["total_attachments"], 0);
+
+        let home = fs::read_to_string(temp_dir.path().join("report/index.html"))
+            .expect("read generated home page");
+        assert!(home.contains("Statistics"));
+        assert!(home.contains("Total Messages:"));
+    }
+
+    #[test]
+    fn generate_rebuilds_statistics_for_the_active_dataset() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
+        fs::write(
+            json_dir.join("joined.json"),
+            json!([
+                {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "message": "unfiltered message",
+                    "contact": null
+                },
+                {
+                    "timestamp": "2024-01-03T00:00:00Z",
+                    "message": "later unfiltered message",
+                    "contact": null
+                }
+            ])
+            .to_string(),
+        )
+        .expect("write joined messages");
+        fs::write(
+            json_dir.join("filtered.json"),
+            json!([
+                {
+                    "timestamp": "2024-01-02T00:00:00Z",
+                    "message": "filtered message",
+                    "contact": null
+                }
+            ])
+            .to_string(),
+        )
+        .expect("write filtered messages");
+        fs::write(json_dir.join("stats.json"), r#"{"total_messages": 99}"#)
+            .expect("write stale stats");
+
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            true,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate report with filtered dataset");
+
+        let stats: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(json_dir.join("stats.json")).expect("read regenerated statistics"),
+        )
+        .expect("parse regenerated statistics");
+        assert_eq!(stats["total_messages"], 1);
+
+        let report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
+            .expect("read generated message report");
+        assert!(report.contains("filtered message"));
+        assert!(!report.contains("unfiltered message"));
     }
 
     #[test]

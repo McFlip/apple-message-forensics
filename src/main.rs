@@ -138,6 +138,18 @@ fn filter_by_contact_ids(json_dir: &Path, ids_path: &Path) -> Result<bool, Box<d
     Ok(true)
 }
 
+fn write_statistics(json_dir: &Path, filtered: bool) -> Result<(), Box<dyn Error>> {
+    let input_name = if filtered {
+        "filtered.json"
+    } else {
+        "joined.json"
+    };
+    let input = std::fs::read_to_string(json_dir.join(input_name))?;
+    let statistics = apple_message_forensics::statistics_from_json(&input)?;
+    std::fs::write(json_dir.join("stats.json"), statistics)?;
+    Ok(())
+}
+
 fn main() {
     let args = Args::parse();
     let region = match args.region.parse::<Region>() {
@@ -189,6 +201,11 @@ fn main() {
                     std::process::exit(1);
                 }
             };
+
+            if let Err(err) = write_statistics(&args.output.join("json"), filtering_applied) {
+                logger::error_fmt(format_args!("error: {err}"));
+                std::process::exit(1);
+            }
 
             if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
@@ -420,6 +437,11 @@ fn main() {
                 }
             };
 
+            if let Err(err) = write_statistics(&json_dir, filtering_applied) {
+                logger::error_fmt(format_args!("error: {err}"));
+                std::process::exit(1);
+            }
+
             // Final step: Generate report automatically after collection
             if let Err(err) = apple_message_forensics::report::generate(
                 args.output.clone(),
@@ -442,6 +464,7 @@ fn main() {
 mod tests {
     use super::{
         Args, Commands, clean_stale_filtered, filter_by_contact_ids, filter_joined_messages,
+        write_statistics,
     };
     use chrono::{DateTime, Utc};
     use clap::Parser;
@@ -470,6 +493,30 @@ mod tests {
         )
         .expect("write joined messages");
         (temp_dir, json_dir)
+    }
+
+    #[test]
+    fn statistics_use_filtered_messages_only_when_filtering_was_applied() {
+        let (_temp_dir, json_dir) = json_dir();
+        fs::write(
+            json_dir.join("filtered.json"),
+            json!([{"message": "filtered", "contact": null}]).to_string(),
+        )
+        .expect("write filtered messages");
+
+        write_statistics(&json_dir, false).expect("write joined statistics");
+        let joined_stats: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(json_dir.join("stats.json")).expect("read joined statistics"),
+        )
+        .expect("parse joined statistics");
+        assert_eq!(joined_stats["total_messages"], 3);
+
+        write_statistics(&json_dir, true).expect("write filtered statistics");
+        let filtered_stats: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(json_dir.join("stats.json")).expect("read filtered statistics"),
+        )
+        .expect("parse filtered statistics");
+        assert_eq!(filtered_stats["total_messages"], 1);
     }
 
     fn filtered_messages(json_dir: &std::path::Path) -> Vec<String> {

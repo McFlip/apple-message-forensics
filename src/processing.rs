@@ -4,6 +4,85 @@ use rlibphonenumber::{PhoneNumber, Region};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Statistics {
+    pub total_messages: usize,
+    pub total_attachments: usize,
+    pub top_talkers: Vec<TopTalker>,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TopTalker {
+    pub name: String,
+    pub message_count: usize,
+}
+
+pub fn statistics_from_json(json_str: &str) -> Result<String, serde_json::Error> {
+    let messages = unmarshal_msg_contact_tuples_from_json(json_str)?;
+    let mut talkers: HashMap<String, (String, usize)> = HashMap::new();
+
+    for (message, contact) in &messages {
+        let Some(contact) = contact else {
+            continue;
+        };
+
+        let contact_name = [
+            contact.first_name.as_deref().unwrap_or("").trim(),
+            contact.last_name.as_deref().unwrap_or("").trim(),
+        ]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+        let name = if contact_name.is_empty() {
+            message
+                .sender
+                .as_deref()
+                .filter(|sender| !sender.is_empty())
+                .unwrap_or("Unknown")
+                .to_owned()
+        } else {
+            contact_name.clone()
+        };
+        let identity = contact
+            .contact_unique_id
+            .clone()
+            .or_else(|| (!contact_name.is_empty()).then_some(contact_name))
+            .or_else(|| message.sender.clone())
+            .unwrap_or_else(|| name.clone());
+        let entry = talkers.entry(identity).or_insert((name, 0));
+        entry.1 += 1;
+    }
+
+    let mut top_talkers: Vec<TopTalker> = talkers
+        .into_values()
+        .map(|(name, message_count)| TopTalker {
+            name,
+            message_count,
+        })
+        .collect();
+    top_talkers.sort_by(|a, b| {
+        b.message_count
+            .cmp(&a.message_count)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    top_talkers.truncate(10);
+
+    serde_json::to_string(&Statistics {
+        total_messages: messages.len(),
+        total_attachments: messages
+            .iter()
+            .filter(|(message, _)| {
+                message
+                    .attachment
+                    .as_deref()
+                    .is_some_and(|attachment| !attachment.trim().is_empty())
+            })
+            .count(),
+        top_talkers,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GrpChat {
     pub chat: Option<String>,
     pub messages: Vec<Message>,
@@ -372,6 +451,7 @@ pub fn marshal_msg_contact_tuple_to_json(joined: &[MsgContactTuple]) -> serde_js
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_normalize_handle_phone() {
@@ -395,5 +475,70 @@ mod tests {
             normalize_handle("email_addresses", "JOHN@DOE.COM", Region::US),
             "john@doe.com"
         );
+    }
+
+    #[test]
+    fn statistics_count_messages_attachments_and_top_talkers() {
+        let joined = json!([
+            {
+                "message": "hello",
+                "attachment": "photo.jpg",
+                "sender": "+15550000001",
+                "contact": {
+                    "contact_unique_id": "contact-1",
+                    "first_name": "Alex",
+                    "last_name": "Doe"
+                }
+            },
+            {
+                "message": "reply",
+                "sender": "+15550000001",
+                "contact": {
+                    "contact_unique_id": "contact-1",
+                    "first_name": "Alex",
+                    "last_name": "Doe"
+                }
+            },
+            {
+                "message": "unknown",
+                "contact": null
+            }
+        ])
+        .to_string();
+
+        let statistics: Statistics =
+            serde_json::from_str(&statistics_from_json(&joined).expect("calculate statistics"))
+                .expect("parse statistics JSON");
+        assert_eq!(statistics.total_messages, 3);
+        assert_eq!(statistics.total_attachments, 1);
+        assert_eq!(
+            statistics.top_talkers,
+            vec![TopTalker {
+                name: "Alex Doe".to_string(),
+                message_count: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn statistics_limit_top_talkers_to_ten_contacts() {
+        let joined: Vec<serde_json::Value> = (0..11)
+            .map(|index| {
+                json!({
+                    "sender": format!("contact-{index}"),
+                    "contact": {
+                        "contact_unique_id": format!("contact-{index}"),
+                        "first_name": format!("Contact {index}")
+                    }
+                })
+            })
+            .collect();
+
+        let statistics: Statistics = serde_json::from_str(
+            &statistics_from_json(&serde_json::to_string(&joined).expect("serialize messages"))
+                .expect("calculate statistics"),
+        )
+        .expect("parse statistics JSON");
+        assert_eq!(statistics.top_talkers.len(), 10);
     }
 }

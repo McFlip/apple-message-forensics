@@ -13,12 +13,13 @@ const ATTACHMENT_FIXTURES: [(&str, &str); 3] = [
     ("security.png", "1a/2f/GUID-ATT-03/security.png"),
 ];
 
-const REPORT_JSON_FILES: [&str; 5] = [
+const REPORT_JSON_FILES: [&str; 6] = [
     "handles.json",
     "group_memberships.json",
     "addresses.json",
     "messages.json",
     "joined.json",
+    "stats.json",
 ];
 
 const REPORT_PAGES: [&str; 5] = [
@@ -129,11 +130,41 @@ fn e2e_collect_against_fake_home_produces_full_output() {
         "expected handles json to contain fixture handle +15550000001",
     );
 
+    let statistics = fs::read_to_string(json_dir.join("stats.json"))
+        .expect("failed to read statistics json");
+    let statistics: serde_json::Value =
+        serde_json::from_str(&statistics).expect("failed to parse statistics json");
+    assert!(
+        statistics["total_messages"].as_u64().is_some_and(|count| count > 0),
+        "expected statistics to include a positive total message count",
+    );
+    assert!(
+        statistics["total_attachments"]
+            .as_u64()
+            .is_some_and(|count| count > 0),
+        "expected statistics to include a positive total attachment count",
+    );
+    assert!(
+        statistics["top_talkers"]
+            .as_array()
+            .is_some_and(|talkers| !talkers.is_empty() && talkers.len() <= 10),
+        "expected statistics to include up to 10 top talkers",
+    );
+
     let report_dir = output_dir.join("report");
     for name in REPORT_PAGES {
         assert!(
             report_dir.join(name).is_file(),
             "expected report page {name} to exist"
+        );
+    }
+
+    let homepage =
+        fs::read_to_string(report_dir.join("index.html")).expect("failed to read report homepage");
+    for label in ["Total Messages:", "Total Attachments:", "Top Talkers"] {
+        assert!(
+            homepage.contains(label),
+            "expected report homepage to display {label}",
         );
     }
 
