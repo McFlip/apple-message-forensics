@@ -42,15 +42,16 @@
   - [ ] Re-encode `heic` media for web - run this by the team
   - [x] vcf contact cards?
   - [ ] display inline with link to file? - run this by the team
+    - NOTE: Added media page for easy browsing of media - will probably go with current behavior of showing link in message to raw content
 - [ ] Packaging
-  - [ ] Embedded Python with PowerShell script to run `http.server`
-  - [ ] Print to PDF
-  - [ ] Export to CSV
+  - [ ] Embedded GUI app that launches server and then default browser to localhost
+  - [ ] Export to load file for `Nuix` - JSONL?
 - [ ] Group Chats
   - [x] Create `group.json` - filter on `messages.json` looking for "chat[NUM]" regex in `.chat` field
   - [x] Create group listing page and link in home.
 - [x] Message card
   - [x] Show `Sender -> Receiver`
+- [x] Media page lists media attachments
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
@@ -62,5 +63,6 @@
 - [x] Validate date filters against real data
 - [x] Validate contact filter against real data
 - [x] End-to-End Testing: Verify the full flow: `collect` $\rightarrow$ `report` (with filters) $\rightarrow$ `deliver`.
-  - NOTE: Added `just` commands for E2E. Everything working up to `deliver` - not implemented yet.
+  - [x] Added `just` commands for E2E on a real system.
+  - [x] Automated E2E for collect command using SQL test fixtures and temp file system
 
