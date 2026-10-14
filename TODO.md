@@ -46,7 +46,14 @@
 - [ ] Packaging
   - [ ] Embedded GUI app that launches server and then default browser to localhost
   - [ ] Export to load file for `Nuix` - JSONL?
-- [ ] Group Chats
+  - [ ] Cellebrite
+    - [ ] Scaffold mock iOS file system
+    - [ ] Unzip Evidence to correct location
+    - [ ] Validate hashes
+    - [ ] Rename files to iOS version
+    - [ ] ZIP mock iOS file system to Delivery folder
+    - [ ] Hash delivery
+- [x] Group Chats
   - [x] Create `group.json` - filter on `messages.json` looking for "chat[NUM]" regex in `.chat` field
   - [x] Create group listing page and link in home.
 - [x] Message card
