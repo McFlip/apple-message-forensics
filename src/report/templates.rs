@@ -352,10 +352,10 @@ pub fn chat_thread_page(
                                    }
 
                                 }
-                                div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
-                            }
-                        }
-                    }
+                                    div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                                               }
+                                           }
+                                       }
                 }
             }
         }
@@ -470,14 +470,17 @@ pub fn all_messages_page(
                                        }
 
                                   }
-                                  div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
-                                             }
-                                         }
-                                     }
+                                   div class="text" { (msg.message.clone().unwrap_or_else(|| "[No content]".to_string())) }
+                                              }
+                                          }
+                                      @if messages.is_empty() {
+                                          p { "No messages to report" }
+                                      }
+                                      }
 
 
 
-                    div class="pagination" {
+                     div class="pagination" {
                         @if current_page > 1 {
                             @if current_page - 1 == 1 {
                                 a href="index.html" { "Previous" }
@@ -550,6 +553,9 @@ pub fn media_page(
                                     }
                                 }
                             }
+                        }
+                        @if messages.is_empty() {
+                            p { "No media to report" }
                         }
                     }
 

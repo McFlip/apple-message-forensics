@@ -297,7 +297,7 @@ pub fn generate(
 
     const PAGE_SIZE: usize = 50;
     let total_messages = joined_data.len();
-    let total_pages = total_messages.div_ceil(PAGE_SIZE);
+    let total_pages = total_messages.div_ceil(PAGE_SIZE).max(1);
 
     for page in 1..=total_pages {
         let start = (page - 1) * PAGE_SIZE;
@@ -324,7 +324,7 @@ pub fn generate(
     fs::create_dir_all(&media_dir)?;
 
     let total_media = media_data.len();
-    let total_media_pages = total_media.div_ceil(PAGE_SIZE);
+    let total_media_pages = total_media.div_ceil(PAGE_SIZE).max(1);
 
     for page in 1..=total_media_pages {
         let start = (page - 1) * PAGE_SIZE;
@@ -487,6 +487,68 @@ mod tests {
         let home = fs::read_to_string(temp_dir.path().join("report/index.html"))
             .expect("read generated home page");
         assert!(home.contains("media/index.html"));
+    }
+
+    #[test]
+    fn generate_media_page_reports_no_media_when_none_present() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
+        fs::write(
+            json_dir.join("joined.json"),
+            json!([
+                {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "message": "document message",
+                    "attachment": "~/Library/Messages/Attachments/report.pdf",
+                    "contact": null
+                }
+            ])
+            .to_string(),
+        )
+        .expect("write joined messages");
+
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            false,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate report");
+
+        let media_report = fs::read_to_string(temp_dir.path().join("report/media/index.html"))
+            .expect("read generated media report");
+        assert!(media_report.contains("No media to report"));
+    }
+
+    #[test]
+    fn generate_messages_page_reports_no_messages_when_none_present() {
+        let temp_dir = tempdir().expect("create temporary output directory");
+        let json_dir = temp_dir.path().join("json");
+        fs::create_dir(&json_dir).expect("create JSON directory");
+        fs::write(json_dir.join("addresses.json"), "[]").expect("write contacts");
+        fs::write(json_dir.join("group_memberships.json"), "[]").expect("write group memberships");
+        fs::write(json_dir.join("joined.json"), "[]").expect("write joined messages");
+
+        generate(
+            temp_dir.path().to_path_buf(),
+            None,
+            false,
+            Region::US,
+            None,
+            None,
+            None,
+        )
+        .expect("generate report");
+
+        let messages_report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
+            .expect("read generated messages report");
+        assert!(messages_report.contains("No messages to report"));
     }
 
     #[test]
