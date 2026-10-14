@@ -34,6 +34,10 @@ struct Args {
     #[arg(long, value_name = "FILE", global = true)]
     contact_ids_file: Option<PathBuf>,
 
+    /// Home directory to scan for evidence (default: $HOME). Useful for e2e testing.
+    #[arg(long, value_name = "DIR", global = true)]
+    home: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -48,13 +52,25 @@ enum Commands {
     Collect,
 }
 
-fn default_home_dir() -> PathBuf {
-    match std::env::var_os("HOME") {
-        Some(home) => PathBuf::from(home),
-        None => {
-            logger::error("HOME environment variable is not set");
-            std::process::exit(1);
+fn resolve_home_dir(custom_home: Option<PathBuf>) -> PathBuf {
+    match custom_home {
+        Some(home) => {
+            if !home.is_dir() {
+                logger::error_fmt(format_args!(
+                    "home directory does not exist: {}",
+                    home.display()
+                ));
+                std::process::exit(1);
+            }
+            home
         }
+        None => match std::env::var_os("HOME") {
+            Some(home) => PathBuf::from(home),
+            None => {
+                logger::error("HOME environment variable is not set");
+                std::process::exit(1);
+            }
+        },
     }
 }
 
@@ -244,7 +260,7 @@ fn main() {
         }
         Some(Commands::Collect) | None => {
             // Standard collection and report flow
-            let home_dir = default_home_dir();
+            let home_dir = resolve_home_dir(args.home);
 
             let chat_db_src_dir = home_dir.join("Library").join("Messages");
             let chat_db_init = chat_db_path_from_src_dir(&chat_db_src_dir);
@@ -483,6 +499,20 @@ mod tests {
         assert!(matches!(args.command, Some(Commands::Report)));
         assert_eq!(args.start, Some(date("2024-01-01T00:00:00Z")));
         assert_eq!(args.end, Some(date("2024-01-03T00:00:00Z")));
+    }
+
+    #[test]
+    fn home_dir_switch_parses() {
+        let args = Args::try_parse_from([
+            "apple-message-forensics",
+            "--home",
+            "/tmp/e2e-home",
+            "collect",
+        ])
+        .expect("parse home switch");
+
+        assert!(matches!(args.command, Some(Commands::Collect)));
+        assert_eq!(args.home, Some(std::path::PathBuf::from("/tmp/e2e-home")));
     }
 
     #[test]

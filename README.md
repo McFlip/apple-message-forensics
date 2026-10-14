@@ -225,6 +225,30 @@ apple-message-forensics --outdir "path/to/output"
 
 >[!Warning] The command will fail if the output directory is not empty, unless you are running the `report` subcommand
 
+### Specify Home Directory
+
+By default the tool scans the current user's home directory (`$HOME`) for evidence.
+You can point it at a different home directory with `--home`, which is primarily useful for end-to-end testing with fixture data.
+
+```bash
+apple-message-forensics --home "path/to/fake/home"
+```
+
+The directory must exist and contain the expected evidence layout:
+
+```
+fake-home/
+  Library/
+    Messages/                   # chat.db (+ chat.db-wal/chat.db-shm when present)
+      chat.db
+      Attachment Vault/         # optional: attachment files
+    Application Support/
+      AddressBook/
+        AddressBook-v22.abcddb
+```
+
+>[!Note] When `--home` is omitted the behavior is unchanged: the tool falls back to `$HOME`.
+
 ### Collection Only - Do not generate report
 
 ```bash
