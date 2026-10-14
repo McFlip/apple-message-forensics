@@ -93,7 +93,15 @@ pub fn home_page(
                 } @else {
                     ol {
                         @for talker in &statistics.top_talkers {
-                            li { (talker.name) " (" (talker.message_count) " messages)" }
+                            li {
+                                a href=(format!(
+                                    "contacts/contact_{}.html",
+                                    talker.contact_id.as_ref().unwrap_or(&serde_json::Value::Null)
+                                )) {
+                                    (talker.name)
+                                }
+                                " (" (talker.message_count) " messages)"
+                            }
                         }
                     }
                 }

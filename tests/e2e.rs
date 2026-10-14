@@ -167,6 +167,17 @@ fn e2e_collect_against_fake_home_produces_full_output() {
             "expected report homepage to display {label}",
         );
     }
+    for talker in statistics["top_talkers"]
+        .as_array()
+        .expect("statistics include top talkers")
+    {
+        let talker_href = format!("href=\"contacts/contact_{}.html\"", talker["contact_id"]);
+        assert!(
+            homepage.contains(&talker_href),
+            "expected top talker {} to link to its contact page",
+            talker["name"]
+        );
+    }
 
     for (_, relative_path) in ATTACHMENT_FIXTURES {
         assert!(

@@ -14,11 +14,12 @@ pub struct Statistics {
 pub struct TopTalker {
     pub name: String,
     pub message_count: usize,
+    pub contact_id: Option<serde_json::Value>,
 }
 
 pub fn statistics_from_json(json_str: &str) -> Result<String, serde_json::Error> {
     let messages = unmarshal_msg_contact_tuples_from_json(json_str)?;
-    let mut talkers: HashMap<String, (String, usize)> = HashMap::new();
+    let mut talkers: HashMap<String, (String, usize, Option<serde_json::Value>)> = HashMap::new();
 
     for (message, contact) in &messages {
         let Some(contact) = contact else {
@@ -49,15 +50,18 @@ pub fn statistics_from_json(json_str: &str) -> Result<String, serde_json::Error>
             .or_else(|| (!contact_name.is_empty()).then_some(contact_name))
             .or_else(|| message.sender.clone())
             .unwrap_or_else(|| name.clone());
-        let entry = talkers.entry(identity).or_insert((name, 0));
+        let entry = talkers
+            .entry(identity)
+            .or_insert((name, 0, contact.contact_id.clone()));
         entry.1 += 1;
     }
 
     let mut top_talkers: Vec<TopTalker> = talkers
         .into_values()
-        .map(|(name, message_count)| TopTalker {
+        .map(|(name, message_count, contact_id)| TopTalker {
             name,
             message_count,
+            contact_id,
         })
         .collect();
     top_talkers.sort_by(|a, b| {
@@ -486,6 +490,7 @@ mod tests {
                 "sender": "+15550000001",
                 "contact": {
                     "contact_unique_id": "contact-1",
+                    "contact_id": 42,
                     "first_name": "Alex",
                     "last_name": "Doe"
                 }
@@ -495,6 +500,7 @@ mod tests {
                 "sender": "+15550000001",
                 "contact": {
                     "contact_unique_id": "contact-1",
+                    "contact_id": 42,
                     "first_name": "Alex",
                     "last_name": "Doe"
                 }
@@ -516,6 +522,7 @@ mod tests {
             vec![TopTalker {
                 name: "Alex Doe".to_string(),
                 message_count: 2,
+                contact_id: Some(json!(42)),
             }]
         );
     }

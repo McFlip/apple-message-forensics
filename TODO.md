@@ -29,12 +29,12 @@
 - [x] Contact Filtering: Implement `--contact-ids-file` (plain‑text GUID list) to limit the report to specific individuals.
 
 ### Report Content
-- [ ] Header Statistics:
+- [x] Header Statistics:
     - [x] Add report generation timestamp (UTC and Local).
     - [x] Add tool version.
     - [x] Display active filter settings used for the current report.
-    - [ ] Add basic stats: Total messages, earliest message date, and latest message date.
-    - [ ] Implement "Top Talkers" summary.
+    - [x] Add basic stats: Total messages, earliest message date, and latest message date.
+    - [x] Implement "Top Talkers" summary.
 - [ ] Message attachments
   - [x] Copy attachments folder from working copy to report folder
   - [x] Strip `~/Library/Messages/Attachments/` from beginning of the path
