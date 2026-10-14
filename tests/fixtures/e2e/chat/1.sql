@@ -87,7 +87,7 @@ INSERT INTO attachment (ROWID, guid, filename, mime_type, total_bytes, is_outgoi
 VALUES
   (1, 'GUID-ATT-01', 'exploits_of_a_mom_2x.png', 'image/png', 67523, 1, 'ORIG-GUID-ATT-01'),
   (2, 'GUID-ATT-02', 'science_montage.png', 'image/png', 73746, 0, 'ORIG-GUID-ATT-02'),
-  (3, 'GUID-ATT-03', 'security.png', 'image/png', 26341, 0, 'ORIG-GUID-ATT-03');
+  (3, 'GUID-ATT-03', '~/Library/Messages/Attachments/1a/2f/GUID-ATT-03/security.png', 'image/png', 26341, 0, 'ORIG-GUID-ATT-03');
 INSERT INTO chat_message_join (chat_id, message_id, message_date)
 VALUES
   (13, 1, 738936000000000000),

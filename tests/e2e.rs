@@ -7,10 +7,26 @@ const CHAT_DATA_SQL: &str = include_str!("fixtures/e2e/chat/1.sql");
 const ADDRESS_BOOK_SCHEMA_SQL: &str = include_str!("fixtures/e2e/addressbook/0.sql");
 const ADDRESS_BOOK_DATA_SQL: &str = include_str!("fixtures/e2e/addressbook/1.sql");
 
-const ATTACHMENT_FIXTURE_NAMES: [&str; 3] = [
-    "exploits_of_a_mom_2x.png",
-    "science_montage.png",
-    "security.png",
+const ATTACHMENT_FIXTURES: [(&str, &str); 3] = [
+    ("exploits_of_a_mom_2x.png", "exploits_of_a_mom_2x.png"),
+    ("science_montage.png", "science_montage.png"),
+    ("security.png", "1a/2f/GUID-ATT-03/security.png"),
+];
+
+const REPORT_JSON_FILES: [&str; 5] = [
+    "handles.json",
+    "group_memberships.json",
+    "addresses.json",
+    "messages.json",
+    "joined.json",
+];
+
+const REPORT_PAGES: [&str; 5] = [
+    "index.html",
+    "contacts/index.html",
+    "chats/index.html",
+    "messages/index.html",
+    "media/index.html",
 ];
 
 fn build_fake_home(home_dir: &std::path::Path) {
@@ -27,12 +43,15 @@ fn build_fake_home(home_dir: &std::path::Path) {
         .expect("failed to apply chat data fixture");
 
     let attachments_dir = messages_dir.join("Attachments");
-    fs::create_dir_all(&attachments_dir).expect("failed to create Attachments directory");
-    for name in ATTACHMENT_FIXTURE_NAMES {
-        let fixture = std::path::PathBuf::from("tests/fixtures/e2e/chat/attachments").join(name);
+    for (fixture_name, relative_path) in ATTACHMENT_FIXTURES {
+        let fixture =
+            std::path::PathBuf::from("tests/fixtures/e2e/chat/attachments").join(fixture_name);
         let contents = fs::read(&fixture).expect("failed to read attachment fixture");
-        fs::write(&attachments_dir.join(name), contents)
-            .expect("failed to write attachment fixture");
+
+        let destination = attachments_dir.join(relative_path);
+        fs::create_dir_all(destination.parent().expect("attachment has no parent"))
+            .expect("failed to create attachment directory");
+        fs::write(&destination, contents).expect("failed to write attachment fixture");
     }
 
     let address_book_dir = home_dir
@@ -52,7 +71,7 @@ fn build_fake_home(home_dir: &std::path::Path) {
 }
 
 #[test]
-fn collect_against_fake_home_produces_full_output() {
+fn e2e_collect_against_fake_home_produces_full_output() {
     let fake_home = TempDir::new().expect("failed to create fake home temporary directory");
     let output = TempDir::new().expect("failed to create output temporary directory");
 
@@ -69,8 +88,9 @@ fn collect_against_fake_home_produces_full_output() {
 
     if !result.status.success() {
         eprintln!(
-            "collect run failed:\nstdout:\n{:?}\nstderr:\n{:?}",
-            result.stdout, result.stderr,
+            "collect run failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr),
         );
     }
     assert!(
@@ -98,27 +118,29 @@ fn collect_against_fake_home_produces_full_output() {
     );
 
     let json_dir = output_dir.join("json");
-    for name in [
-        "handles.json",
-        "group_memberships.json",
-        "addresses.json",
-        "messages.json",
-        "joined.json",
-    ] {
+    for name in REPORT_JSON_FILES {
         assert!(json_dir.join(name).is_file(), "expected {name} to exist");
     }
 
+    let handles =
+        fs::read_to_string(json_dir.join("handles.json")).expect("failed to read handles json");
+    assert!(
+        handles.contains("+15550000001"),
+        "expected handles json to contain fixture handle +15550000001",
+    );
+
     let report_dir = output_dir.join("report");
-    for name in [
-        "index.html",
-        "contacts/index.html",
-        "chats/index.html",
-        "messages/index.html",
-        "media/index.html",
-    ] {
+    for name in REPORT_PAGES {
         assert!(
             report_dir.join(name).is_file(),
             "expected report page {name} to exist"
+        );
+    }
+
+    for (_, relative_path) in ATTACHMENT_FIXTURES {
+        assert!(
+            report_dir.join("attachments").join(relative_path).is_file(),
+            "expected attachment {relative_path} to be copied into the report",
         );
     }
 }
