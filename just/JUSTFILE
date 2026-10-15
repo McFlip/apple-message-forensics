@@ -1,0 +1,7 @@
+# The standard workflow
+do-it:
+  ./apple-message-forensics --meta metadata.yaml
+  ./apple-message-forensics --meta metadata.yaml cellebrite
+  cp bin/* output/report
+  cd output/report
+  ./reader

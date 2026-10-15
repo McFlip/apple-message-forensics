@@ -479,7 +479,7 @@ sha256sum -c hashes.txt
 
 And here is how to do it in PowerShell7 on Windows or any other platform running PowerShell7:
 
-First, create a PowerShell script named `Validate-Manifest.ps1`.
+First, create a PowerShell script named `validate_hashes.ps1`.
 
 ```powershell
 [CmdletBinding()]

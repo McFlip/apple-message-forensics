@@ -62,3 +62,20 @@ filter_both: check clean
 # Deliver
 deliver: build build-reader
   cargo run -- deliver
+
+# Release build
+release: check
+  rm -rf release
+  mkdir -p release/bin
+  cargo build --release --bins
+  cp target/release/reader target/release/report-server release/bin/
+  cp target/release/apple-message-forensics release/
+  cp just/JUSTFILE release/
+  cp README.md release/
+  cp LICENSE release/
+  cp screenshot{1,2}.png release/
+  cp tests/fixtures/mock_contact_id release/contact_id.txt
+  cp tests/fixtures/mock_metadata.yaml release/metadata.yaml
+  mkdir release/scripts
+  cp -r scripts/ release/scripts/
+
