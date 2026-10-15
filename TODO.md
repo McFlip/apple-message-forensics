@@ -44,7 +44,7 @@
   - [x] URL encode
   - [ ] Re-encode `heic` media for web - run this by the team
   - [x] vcf contact cards?
-  - [ ] Regression => Chat threads not showing `View attachment`
+  - [x] Regression => Chat threads not showing `View attachment`
   - [ ] display inline with link to file? - run this by the team
     - NOTE: Added media page for easy browsing of media - will probably go with current behavior of showing link in message to raw content
 - [ ] Packaging
