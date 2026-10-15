@@ -16,12 +16,15 @@
   - [x] `"date_edited"`
 - [ ] Investigate other useful fields
   - [ ] Discuss with team
+  - [ ] Discuss with `Nuix` support
   - [ ] AI research
 
 ## 🛠️ Collection & Preservation
 - [x] Evidence Packaging: Implement the `evidence` ZIP collection, including all source artifacts (chat.db, WAL, SHM, attachments, and AddressBook data).
 - [x] Hashing: Implement MD5 and SHA256 hashing for all collected source files.
-- [x] Delivery Module: Implement the `deliver` subcommand to create a final ZIP archive of the case with optional password protection and a manifest of hashes.
+- [ ] Delivery Module: Implement the `deliver` subcommand to create a final ZIP archive of the case with optional password protection and a manifest of hashes.
+  - [x] ZIP creation
+  - [ ] Password protection
 
 ## 📊 Report Enhancements
 ### Filtering Logic
@@ -41,10 +44,14 @@
   - [x] URL encode
   - [ ] Re-encode `heic` media for web - run this by the team
   - [x] vcf contact cards?
+  - [x] Regression => Chat threads not showing `View attachment`
   - [ ] display inline with link to file? - run this by the team
     - NOTE: Added media page for easy browsing of media - will probably go with current behavior of showing link in message to raw content
 - [ ] Packaging
-  - [ ] Embedded GUI app that launches server and then default browser to localhost
+  - [x] Embedded GUI app that launches server and then default browser to localhost
+    - [x] Executables
+    - [x] Update deliver command to copy binaries
+    - [x] Vendor font dependency instead of using a CDN
   - [ ] Export to load file for `Nuix` - JSONL?
   - [ ] Cellebrite
     - [ ] Scaffold mock iOS file system
@@ -62,7 +69,6 @@
 
 ## ⚙️ CLI & Core
 - [x] Output Directory Validation: Ensure the tool fails if the output directory is not empty (except for the `report` subcommand).
-- [ ] Report Versioning: Implement the timestamped subfolder logic (`yyyy-mm-dd-HH-mm-ss`) for the `report` subcommand to prevent overwriting previous reports.
 
 ## 🧪 Verification
 - [x] Hash Validation: Ensure the generated hash files are compatible with `sha256sum -c`.

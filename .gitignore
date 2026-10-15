@@ -28,3 +28,12 @@ target
 # Manual testing
 
 /output
+
+# Report binaries
+bin/report-server
+bin/reader
+bin/report-server.exe
+bin/reader.exe
+
+# Release build
+/release
