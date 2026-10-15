@@ -54,10 +54,15 @@
     - [x] Vendor font dependency instead of using a CDN
   - [ ] Export to load file for `Nuix` - JSONL?
   - [ ] Cellebrite
-    - [ ] Scaffold mock iOS file system
-    - [ ] Unzip Evidence to correct location
-    - [ ] Validate hashes
+    - [x] Scaffold mock iOS file system
+    - [x] Unzip Evidence to correct location
+    - [x] Validate hashes
+      - NOTE: can't hash the AddressBook due to data migration requirements
     - [ ] Rename files to iOS version
+      - [x] SMS.db
+      - [ ] AddressBook.sqlitedb
+    - [ ] Export `AddressBook-v22.abcddb` -> JSON -> `AddressBook.sqlitedb`
+      - NOTE: requires data mapping and time conversions
     - [ ] ZIP mock iOS file system to Delivery folder
     - [ ] Hash delivery
 - [x] Group Chats
