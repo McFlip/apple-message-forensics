@@ -4,6 +4,7 @@ use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::os::unix::fs::PermissionsExt;
 use std::{
+    collections::HashMap,
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
@@ -409,6 +410,203 @@ pub fn copy_and_verify_manifest_files(
     }
 
     Ok(())
+}
+
+pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
+    if !output_dir.is_dir() {
+        return Err(format!(
+            "output directory does not exist: {}",
+            output_dir.display()
+        ));
+    }
+
+    let working_copy = output_dir.join("evidence").join("working_copy");
+    let manifest_path = working_copy.join("hash_manifest.txt");
+    let manifest_contents = fs::read_to_string(&manifest_path).map_err(|err| {
+        format!(
+            "cannot read hash manifest '{}': {}",
+            manifest_path.display(),
+            err
+        )
+    })?;
+
+    let mut manifest_hashes = HashMap::new();
+    for (line_number, line) in manifest_contents.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let (hash, relative_path) =
+            parse_hash_manifest_line(line, line_number + 1, &manifest_path)?;
+        if manifest_hashes
+            .insert(relative_path.clone(), hash)
+            .is_some()
+        {
+            return Err(format!(
+                "duplicate path '{}' in hash manifest '{}'",
+                relative_path.display(),
+                manifest_path.display()
+            ));
+        }
+    }
+
+    let cellebrite_dir = output_dir.join("cellebrite");
+    let library_dir = cellebrite_dir
+        .join("private")
+        .join("var")
+        .join("mobile")
+        .join("Library");
+
+    copy_verified_tree(
+        &working_copy
+            .join("Library")
+            .join("Application Support")
+            .join("AddressBook"),
+        Path::new("Library/Application Support/AddressBook"),
+        &library_dir.join("AddressBook"),
+        &manifest_hashes,
+    )?;
+    let sms_dir = library_dir.join("SMS");
+    copy_verified_tree(
+        &working_copy.join("Library").join("Messages"),
+        Path::new("Library/Messages"),
+        &sms_dir,
+        &manifest_hashes,
+    )?;
+
+    for (source_name, destination_name) in [
+        ("chat.db", "sms.db"),
+        ("chat.db-wal", "sms.db-wal"),
+        ("chat.db-shm", "sms.db-shm"),
+    ] {
+        let source_path = sms_dir.join(source_name);
+        if source_path.exists() {
+            fs::rename(&source_path, sms_dir.join(destination_name)).map_err(|err| {
+                format!(
+                    "cannot rename '{}' to '{}': {}",
+                    source_path.display(),
+                    sms_dir.join(destination_name).display(),
+                    err
+                )
+            })?;
+        } else if source_name == "chat.db" {
+            return Err(format!(
+                "Messages database does not exist: {}",
+                source_path.display()
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn copy_verified_tree(
+    source_root: &Path,
+    manifest_prefix: &Path,
+    destination_root: &Path,
+    manifest_hashes: &HashMap<PathBuf, String>,
+) -> Result<(), String> {
+    if !source_root.is_dir() {
+        return Err(format!(
+            "evidence directory does not exist: {}",
+            source_root.display()
+        ));
+    }
+
+    fn copy_directory(
+        source_dir: &Path,
+        source_root: &Path,
+        manifest_prefix: &Path,
+        destination_dir: &Path,
+        manifest_hashes: &HashMap<PathBuf, String>,
+    ) -> Result<(), String> {
+        fs::create_dir_all(destination_dir).map_err(|err| {
+            format!(
+                "cannot create Cellebrite directory '{}': {}",
+                destination_dir.display(),
+                err
+            )
+        })?;
+
+        let entries = fs::read_dir(source_dir).map_err(|err| {
+            format!(
+                "cannot read evidence directory '{}': {}",
+                source_dir.display(),
+                err
+            )
+        })?;
+
+        for entry in entries {
+            let entry = entry.map_err(|err| {
+                format!(
+                    "cannot read an entry in evidence directory '{}': {}",
+                    source_dir.display(),
+                    err
+                )
+            })?;
+            let source_path = entry.path();
+            let file_type = entry.file_type().map_err(|err| {
+                format!(
+                    "cannot inspect evidence path '{}': {}",
+                    source_path.display(),
+                    err
+                )
+            })?;
+
+            if file_type.is_dir() {
+                copy_directory(
+                    &source_path,
+                    source_root,
+                    manifest_prefix,
+                    &destination_dir.join(entry.file_name()),
+                    manifest_hashes,
+                )?;
+            } else if file_type.is_file() {
+                let relative_path = source_path.strip_prefix(source_root).map_err(|err| {
+                    format!(
+                        "evidence path '{}' is not beneath '{}': {}",
+                        source_path.display(),
+                        source_root.display(),
+                        err
+                    )
+                })?;
+                let manifest_path = manifest_prefix.join(relative_path);
+                let expected_hash = manifest_hashes.get(&manifest_path).ok_or_else(|| {
+                    format!(
+                        "file '{}' is missing from hash manifest",
+                        manifest_path.display()
+                    )
+                })?;
+                let destination_path = destination_dir.join(entry.file_name());
+                fs::copy(&source_path, &destination_path).map_err(|err| {
+                    format!(
+                        "cannot copy evidence file '{}' to '{}': {}",
+                        source_path.display(),
+                        destination_path.display(),
+                        err
+                    )
+                })?;
+                let actual_hash = calculate_sha256(&destination_path)?;
+                if !actual_hash.eq_ignore_ascii_case(expected_hash) {
+                    return Err(format!(
+                        "SHA-256 mismatch for '{}': expected {}, got {}",
+                        manifest_path.display(),
+                        expected_hash,
+                        actual_hash
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    copy_directory(
+        source_root,
+        source_root,
+        manifest_prefix,
+        destination_root,
+        manifest_hashes,
+    )
 }
 
 pub fn parse_hash_manifest_line(

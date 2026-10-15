@@ -63,6 +63,10 @@ filter_both: check clean
 deliver: build build-reader
   cargo run -- deliver
 
+# Deliver Cellebrite ZIP
+cellebrite: build
+  cargo run -- --home tests/fixtures/fakehome cellebrite
+
 # Release build
 release: check
   rm -rf release
