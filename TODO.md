@@ -51,7 +51,7 @@
   - [ ] Embedded GUI app that launches server and then default browser to localhost
     - [x] Executables
     - [ ] Update deliver command to copy binaries
-    - [ ] Vendor font dependency instead of using a CDN
+    - [x] Vendor font dependency instead of using a CDN
   - [ ] Export to load file for `Nuix` - JSONL?
   - [ ] Cellebrite
     - [ ] Scaffold mock iOS file system
