@@ -1,0 +1,19 @@
+[package]
+name = "report-reader"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "reader"
+path = "src/main.rs"
+
+[[bin]]
+name = "report-server"
+path = "src/server.rs"
+
+[dependencies]
+axum = "0.8"
+eframe = "0.32"
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread"] }
+tower-http = { version = "0.6", features = ["fs"] }
+webbrowser = "1"

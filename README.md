@@ -320,6 +320,24 @@ Example using `DE` for Germany
 apple-message-forensics --region DE
 ```
 
+### Open the report in the desktop reader
+
+>[!Note] This is for dev purposes, the `deliver` command will automatically bundle a built copy of the reader
+
+Build the reader and the Axum web server:
+
+```bash
+just build-reader
+```
+
+After generating the report in the default `output` folder, bundle reader executables with the report:
+
+```bash
+just bundle-reader
+```
+
+Run `output/report/reader` to start the local report server and open the report in your default browser. Use the reader's **Exit** button to shut down the server and close the app.
+
 ### Deliver
 
 This creates a ZIP archive with everything included (except previous deliveries) and optionally password-protects the ZIP.
@@ -342,24 +360,35 @@ I highly recommend the 3rd party tool `7zip`. You can find it [here](https://www
 The report is a self-contained local website consisting of the following
 
 * Header
-  * timestamp in UTC and local time
+  * time stamp in UTC
   * tool version
   * filter settings used on command line
   * metadata table rendered from file passed in on the command line
   * basic stats
     * total messages
-    * earliest message
-    * latest message
+    * total attachments
     * top talkers
 * List of list pages
   * Contacts sorted alphabetically
-  * Contacts sorted by most recent message
-  * Chats sorted alphabetically
-  * Chats sorted by most recent message
+  * Chat threads sorted by most recent message
+  * Group Chats with last message
   * All messages sorted by most recent - paged
+  * Media attachments
   
 * Clicking on a contact link will display a list of available chats.
 * Chats show messages in a thread format
+
+While you can just double click on an HTML file, you need a web server to get full functionality, including links.
+
+To simplify things for non-technical end users, such as Office of Council and other investigators,
+a *reader* program is bundled with the report.
+
+The reader is just an automated way of 
+1. spinning up the server
+2. launching the default browser and pointing it at the correct URL
+3. Shutting down the server cleanly at the click of a button
+
+The server is a bare-bones Axum web server set up for serving static content.
 
 ## How it Works
 

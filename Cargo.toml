@@ -3,6 +3,9 @@ name = "apple-message-forensics"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["reader"]
+
 [dependencies]
 rlibphonenumber = "2"
 

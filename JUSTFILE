@@ -12,6 +12,16 @@ clean:
 build: check clean
   cargo run -- --meta tests/fixtures/mock_metadata.yaml
 
+# Build the report reader and its server
+build-reader:
+  cargo build --release --package report-reader --bins
+  cp target/release/reader target/release/report-server bin/
+
+# Bundle the report reader and its server with the report
+bundle-reader: build-reader
+  test -f output/report/index.html
+  cp bin/reader bin/report-server output/report/
+
 # Full run
 full: build
   just serve
