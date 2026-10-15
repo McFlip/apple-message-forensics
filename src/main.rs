@@ -255,6 +255,45 @@ fn main() {
                 std::process::exit(1);
             }
 
+            // Bundle locally built report binaries with the report.
+            let bin_dir = PathBuf::from("bin");
+            let bin_entries = match std::fs::read_dir(&bin_dir) {
+                Ok(entries) => entries,
+                Err(e) => {
+                    logger::error_fmt(format_args!("cannot read bin directory: {}", e));
+                    std::process::exit(1);
+                }
+            };
+            let mut copied_binaries = 0;
+            for entry in bin_entries {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(e) => {
+                        logger::error_fmt(format_args!("cannot read bin directory entry: {}", e));
+                        std::process::exit(1);
+                    }
+                };
+                let file_type = match entry.file_type() {
+                    Ok(file_type) => file_type,
+                    Err(e) => {
+                        logger::error_fmt(format_args!("cannot inspect bin entry: {}", e));
+                        std::process::exit(1);
+                    }
+                };
+                if file_type.is_file() && entry.file_name() != ".gitkeep" {
+                    let dest = report_dir.join(entry.file_name());
+                    if let Err(e) = std::fs::copy(entry.path(), dest) {
+                        logger::error_fmt(format_args!("cannot copy report binary: {}", e));
+                        std::process::exit(1);
+                    }
+                    copied_binaries += 1;
+                }
+            }
+            if copied_binaries == 0 {
+                logger::error("No report binaries found in the bin directory.");
+                std::process::exit(1);
+            }
+
             // Generate SHA256 manifest for the report directory
             if let Err(e) = apple_message_forensics::write_report_hashes(&report_dir) {
                 logger::error_fmt(format_args!("cannot create report hash manifest: {}", e));

@@ -44,25 +44,21 @@ report: check
 serve:
   python3 -m http.server --directory output/report/
 
-# ---
-# TODO: Update all E2E to use the fake home
-# ---
-
 # E2E test filtering on contact id
 filter_contact: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --contact-ids-file tests/fixtures/mock_contact_id
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome
   just serve
 
 # E2E test filtering on start date
 filter_start: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2025-01-01T00:00:00Z
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-31T14:00:00Z --home tests/fixtures/fakehome
   just serve
 
 # E2E test filtering on both start date and contact id
 filter_both: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2025-01-01T00:00:00Z --contact-ids-file tests/fixtures/mock_contact_id
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-02T03:00:00Z --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome
   just serve
 
 # Deliver
-deliver: build
+deliver: build build-reader
   cargo run -- deliver

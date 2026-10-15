@@ -48,9 +48,9 @@
   - [ ] display inline with link to file? - run this by the team
     - NOTE: Added media page for easy browsing of media - will probably go with current behavior of showing link in message to raw content
 - [ ] Packaging
-  - [ ] Embedded GUI app that launches server and then default browser to localhost
+  - [x] Embedded GUI app that launches server and then default browser to localhost
     - [x] Executables
-    - [ ] Update deliver command to copy binaries
+    - [x] Update deliver command to copy binaries
     - [x] Vendor font dependency instead of using a CDN
   - [ ] Export to load file for `Nuix` - JSONL?
   - [ ] Cellebrite
