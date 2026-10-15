@@ -10,6 +10,10 @@ clean:
 
 # run but don't launch server
 build: check clean
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --home tests/fixtures/fakehome
+
+# build but with real data
+build-real: check clean
   cargo run -- --meta tests/fixtures/mock_metadata.yaml
 
 # Build the report reader and its server
@@ -26,6 +30,10 @@ bundle-reader: build-reader
 full: build
   just serve
 
+# Full run but with real data
+real-deal: build-real
+  just serve
+
 # Just rerun the report
 report: check
   rm -rf output/report
@@ -35,6 +43,10 @@ report: check
 # Launch server for report
 serve:
   python3 -m http.server --directory output/report/
+
+# ---
+# TODO: Update all E2E to use the fake home
+# ---
 
 # E2E test filtering on contact id
 filter_contact: check clean

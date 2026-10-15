@@ -96,7 +96,14 @@ pub fn generate(
     let report_dir = output_dir.join("report");
     fs::create_dir_all(&report_dir)?;
 
+    let assets_dir = report_dir.join("assets");
+    let src_assets = PathBuf::from("assets");
+    if src_assets.exists() {
+        copy_dir_all(&src_assets, &assets_dir)?;
+    }
+
     copy_attachments(&output_dir)?;
+
 
     let meta = if let Some(path) = meta_path {
         load_metadata(&path)?

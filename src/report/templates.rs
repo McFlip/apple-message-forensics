@@ -308,7 +308,7 @@ pub fn chat_thread_page(
                              head {
                                  meta charset="utf-8";
                                  title { (chat_id) " - " (meta.report.title) }
-                                 link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+                                  link rel="stylesheet" href="assets/all.min.css";
                                  style { (css()) }
                              }
 
