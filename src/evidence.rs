@@ -1021,12 +1021,14 @@ fn load_exported_contacts(
                 transaction,
                 person_id,
                 &export.source.database_sha256,
-                &identity,
-                phone.source.row_pk,
-                phone.value.as_deref(),
-                phone.label.as_deref(),
-                phone.ordering_index,
-                3,
+                SyntheticMultivalue {
+                    contact_identity: &identity,
+                    source_row_pk: phone.source.row_pk,
+                    value: phone.value.as_deref(),
+                    label: phone.label.as_deref(),
+                    ordering_index: phone.ordering_index,
+                    property_code: 3,
+                },
             )?;
             if phone.last_four.as_deref().is_some_and(is_four_ascii_digits) {
                 transaction
@@ -1044,36 +1046,54 @@ fn load_exported_contacts(
                 transaction,
                 person_id,
                 &export.source.database_sha256,
-                &identity,
-                email.source.row_pk,
-                email.value.as_deref(),
-                email.label.as_deref(),
-                email.ordering_index,
-                4,
+                SyntheticMultivalue {
+                    contact_identity: &identity,
+                    source_row_pk: email.source.row_pk,
+                    value: email.value.as_deref(),
+                    label: email.label.as_deref(),
+                    ordering_index: email.ordering_index,
+                    property_code: 4,
+                },
             )?;
         }
     }
     Ok(())
 }
 
+struct SyntheticMultivalue<'a> {
+    contact_identity: &'a str,
+    source_row_pk: i64,
+    value: Option<&'a str>,
+    label: Option<&'a str>,
+    ordering_index: Option<i64>,
+    property_code: i64,
+}
+
 fn insert_synthetic_multivalue(
     connection: &Connection,
     record_id: i64,
     source_hash: &str,
-    contact_identity: &str,
-    source_row_pk: i64,
-    value: Option<&str>,
-    label: Option<&str>,
-    ordering_index: Option<i64>,
-    property_code: i64,
+    multivalue: SyntheticMultivalue<'_>,
 ) -> Result<i64, String> {
-    let value = value.filter(|value| !value.is_empty()).ok_or_else(|| {
-        format!("multivalue for contact {contact_identity} must be a nonempty string")
-    })?;
-    let identifier = ordering_index.filter(|order| *order >= 0).ok_or_else(|| {
-        format!("multivalue order for contact {contact_identity} must be nonnegative")
-    })?;
-    let label_id = match label.filter(|label| !label.is_empty()) {
+    let value = multivalue
+        .value
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            format!(
+                "multivalue for contact {} must be a nonempty string",
+                multivalue.contact_identity
+            )
+        })?;
+    let identifier = multivalue
+        .ordering_index
+        .filter(|order| *order >= 0)
+        .ok_or_else(|| {
+            format!(
+                "multivalue order for contact {} must be nonnegative",
+                multivalue.contact_identity
+            )
+        })?;
+    let label_id = match multivalue.label.filter(|label| !label.is_empty()) {
         Some(label) => {
             connection
                 .execute(
@@ -1095,13 +1115,23 @@ fn insert_synthetic_multivalue(
     };
     let guid = deterministic_guid(
         source_hash,
-        &format!("multivalue:{contact_identity}:{property_code}:{source_row_pk}"),
+        &format!(
+            "multivalue:{}:{}:{}",
+            multivalue.contact_identity, multivalue.property_code, multivalue.source_row_pk
+        ),
     );
     connection
         .execute(
             "INSERT INTO ABMultiValue(record_id, property, identifier, label, value, guid)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params![record_id, property_code, identifier, label_id, value, guid],
+            rusqlite::params![
+                record_id,
+                multivalue.property_code,
+                identifier,
+                label_id,
+                value,
+                guid
+            ],
         )
         .map_err(|err| format!("cannot insert synthetic AddressBook value: {err}"))?;
     Ok(connection.last_insert_rowid())
