@@ -593,6 +593,12 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
         }
     }
 
+    archive_evidence_with_prefix(
+        &cellebrite_dir.join("private"),
+        &cellebrite_dir.join("fake_iPhone.zip"),
+        Path::new("private"),
+    )?;
+
     Ok(())
 }
 
@@ -1298,6 +1304,14 @@ fn set_read_only(path: &Path) -> Result<(), std::io::Error> {
 }
 
 pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), String> {
+    archive_evidence_with_prefix(source_dir, archive_path, Path::new(""))
+}
+
+fn archive_evidence_with_prefix(
+    source_dir: &Path,
+    archive_path: &Path,
+    entry_prefix: &Path,
+) -> Result<(), String> {
     let archive_parent = archive_path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -1371,7 +1385,10 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
         .compression_method(zip::CompressionMethod::Deflated);
 
     for (relative_path, source_path) in entries {
-        let archive_name = relative_path.to_string_lossy().replace('\\', "/");
+        let archive_name = entry_prefix
+            .join(relative_path)
+            .to_string_lossy()
+            .replace('\\', "/");
         archive.start_file(&archive_name, options).map_err(|err| {
             format!(
                 "cannot add '{}' to archive '{}': {}",
@@ -1406,7 +1423,13 @@ pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), St
         )
     })?;
 
-    set_read_only(archive_path).expect("setting vault ZIP to read-only");
+    set_read_only(archive_path).map_err(|err| {
+        format!(
+            "cannot set read-only permissions on archive '{}': {}",
+            archive_path.display(),
+            err
+        )
+    })?;
 
     Ok(())
 }

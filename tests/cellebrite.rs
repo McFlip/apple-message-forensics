@@ -1,8 +1,9 @@
 use apple_message_forensics::create_cellebrite_output;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
-use std::{fs, path::Path};
+use std::{fs, io::Read, path::Path};
 use tempfile::tempdir;
+use zip::ZipArchive;
 
 fn sha256(contents: &[u8]) -> String {
     hex::encode(Sha256::digest(contents))
@@ -98,7 +99,7 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     let output_address_book_path = cellebrite_root.join("AddressBook/AddressBook.sqlitedb");
     assert!(output_address_book_path.is_file());
     let address_book =
-        Connection::open(output_address_book_path).expect("open copied AddressBook database");
+        Connection::open(&output_address_book_path).expect("open generated AddressBook database");
     for table in [
         "ABPersonSearchKey",
         "ABGroupMembers",
@@ -184,6 +185,29 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     assert!(!sms_dir.join("chat.db").exists());
     assert!(!sms_dir.join("chat.db-wal").exists());
     assert!(!sms_dir.join("chat.db-shm").exists());
+
+    let archive_path = output_dir.path().join("cellebrite/fake_iPhone.zip");
+    let archive_file = fs::File::open(archive_path).expect("open Cellebrite ZIP archive");
+    let mut archive = ZipArchive::new(archive_file).expect("read Cellebrite ZIP archive");
+    let address_book_entry = "private/var/mobile/Library/AddressBook/AddressBook.sqlitedb";
+    let mut archived_address_book = archive
+        .by_name(address_book_entry)
+        .expect("AddressBook database is archived relative to private/");
+    let mut archived_contents = Vec::new();
+    archived_address_book
+        .read_to_end(&mut archived_contents)
+        .expect("read archived AddressBook database");
+    assert_eq!(
+        archived_contents,
+        fs::read(&output_address_book_path).expect("read generated AddressBook database")
+    );
+    drop(archived_address_book);
+    assert!(
+        archive
+            .file_names()
+            .all(|name| name.starts_with("private/")),
+        "archive entries should be rooted at private/"
+    );
 }
 
 #[test]
