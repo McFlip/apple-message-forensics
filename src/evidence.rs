@@ -549,7 +549,7 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
             err
         )
     })?;
-    let contacts_json = json_dir.join("addresses.json");
+    let contacts_json = json_dir.join("cellebrite_addresses.json");
     let exported = export_address_book(source_path)?;
     write_address_book_json(&exported, &contacts_json)?;
     let schema_path =

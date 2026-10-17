@@ -72,7 +72,7 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
 
     create_cellebrite_output(output_dir.path()).expect("create Cellebrite filesystem");
 
-    let intermediate_json = output_dir.path().join("json/addresses.json");
+    let intermediate_json = output_dir.path().join("json/cellebrite_addresses.json");
     let exported_contacts: serde_json::Value =
         serde_json::from_slice(&fs::read(intermediate_json).expect("read exported contacts"))
             .expect("parse exported contacts");
