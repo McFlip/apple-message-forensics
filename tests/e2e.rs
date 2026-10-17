@@ -76,7 +76,7 @@ fn e2e_collect_against_fake_home_produces_full_output() {
     let fake_home = TempDir::new().expect("failed to create fake home temporary directory");
     let output = TempDir::new().expect("failed to create output temporary directory");
 
-    build_fake_home(&fake_home.path());
+    build_fake_home(fake_home.path());
 
     let result = std::process::Command::new("target/debug/apple-message-forensics")
         .arg("--home")
@@ -130,12 +130,14 @@ fn e2e_collect_against_fake_home_produces_full_output() {
         "expected handles json to contain fixture handle +15550000001",
     );
 
-    let statistics = fs::read_to_string(json_dir.join("stats.json"))
-        .expect("failed to read statistics json");
+    let statistics =
+        fs::read_to_string(json_dir.join("stats.json")).expect("failed to read statistics json");
     let statistics: serde_json::Value =
         serde_json::from_str(&statistics).expect("failed to parse statistics json");
     assert!(
-        statistics["total_messages"].as_u64().is_some_and(|count| count > 0),
+        statistics["total_messages"]
+            .as_u64()
+            .is_some_and(|count| count > 0),
         "expected statistics to include a positive total message count",
     );
     assert!(

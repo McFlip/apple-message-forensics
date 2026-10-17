@@ -1,4 +1,5 @@
 use apple_message_forensics::create_cellebrite_output;
+use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 use tempfile::tempdir;
@@ -26,11 +27,18 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     let working_copy = output_dir.path().join("evidence/working_copy");
     fs::create_dir_all(&working_copy).expect("create working copy");
 
+    let address_book_path =
+        working_copy.join("Library/Application Support/AddressBook/AddressBook-v22.abcddb");
+    fs::create_dir_all(address_book_path.parent().expect("database has a parent"))
+        .expect("create AddressBook directory");
+    fs::copy(
+        "tests/fixtures/fakehome/Library/Application Support/AddressBook/AddressBook-v22.abcddb",
+        &address_book_path,
+    )
+    .expect("copy fixture DB");
+    let address_book = fs::read(&address_book_path).expect("read mock AddressBook database");
+
     let evidence = [
-        (
-            "Library/Application Support/AddressBook/nested/contacts.db",
-            b"address book".as_slice(),
-        ),
         ("Library/Messages/chat.db", b"chat database".as_slice()),
         (
             "Library/Messages/chat.db-wal",
@@ -51,6 +59,11 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
             contents,
         );
     }
+    manifest_entries.push(format!(
+        "{}  {}",
+        sha256(&address_book),
+        "Library/Application Support/AddressBook/AddressBook-v22.abcddb"
+    ));
     fs::write(
         working_copy.join("hash_manifest.txt"),
         format!("{}\n", manifest_entries.join("\n")),
@@ -62,11 +75,75 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     let cellebrite_root = output_dir
         .path()
         .join("cellebrite/private/var/mobile/Library");
+    let output_address_book_path = cellebrite_root.join("AddressBook/AddressBook.sqlitedb");
+    assert!(output_address_book_path.is_file());
+    let address_book =
+        Connection::open(output_address_book_path).expect("open copied AddressBook database");
+    for table in [
+        "ABPersonSearchKey",
+        "ABGroupMembers",
+        "ABMultiValue",
+        "ABMultiValueLabel",
+        "ABMultiValueEntry",
+        "ABMultiValueEntryKey",
+        "ABPhoneLastFour",
+        "ABPersonMultiValueDeletes",
+        "ClientCursor",
+        "ClientSequence",
+        "ClientCursorConsumed",
+        "LimitedAccess",
+        "ABStore",
+        "ABAccount",
+        "ABGroup",
+        "ABGroupChanges",
+        "ABPerson",
+        "ABPersonChanges",
+        "ABPersonLink",
+        "FirstSortSectionCount",
+        "LastSortSectionCount",
+        "FirstSortSectionCountTotal",
+        "LastSortSectionCountTotal",
+    ] {
+        let exists: bool = address_book
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                [table],
+                |row| row.get(0),
+            )
+            .expect("query AddressBook table");
+        assert!(exists, "expected AddressBook table '{table}' to exist");
+    }
     assert_eq!(
-        fs::read(cellebrite_root.join("AddressBook/nested/contacts.db"))
-            .expect("read copied AddressBook file"),
-        b"address book"
+        address_book
+            .query_row(
+                "SELECT First || ' ' || Last FROM ABPerson WHERE ROWID = 11",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("query mock contact"),
+        "Alice Example"
     );
+    assert_eq!(
+        address_book
+            .query_row(
+                "SELECT value FROM ABMultiValue WHERE record_id = 11 AND property = 4",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("query mock contact email"),
+        "alice@example.com"
+    );
+    assert_eq!(
+        address_book
+            .query_row(
+                "SELECT value FROM ABMultiValue WHERE record_id = 1 AND property = 3",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .expect("query mock contact phone"),
+        "+15550000001"
+    );
+
     let sms_dir = cellebrite_root.join("SMS");
     assert_eq!(
         fs::read(sms_dir.join("sms.db")).expect("read renamed Messages database"),

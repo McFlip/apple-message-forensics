@@ -473,6 +473,19 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
         &manifest_hashes,
     )?;
 
+    // TODO: Change with actual SQL migration. Testing with simple file rename for now.
+    let lib_addr_dir = &library_dir.join("AddressBook");
+    let source_path = &lib_addr_dir.join("AddressBook-v22.abcddb");
+    let new_name = &lib_addr_dir.join("AddressBook.sqlitedb");
+    fs::rename(source_path, new_name).map_err(|err| {
+        format!(
+            "cannot rename '{}' to '{}': {}",
+            source_path.display(),
+            new_name.display(),
+            err
+        )
+    })?;
+
     for (source_name, destination_name) in [
         ("chat.db", "sms.db"),
         ("chat.db-wal", "sms.db-wal"),
