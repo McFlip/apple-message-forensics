@@ -331,16 +331,7 @@ pub fn chat_thread_page(
 
 pub fn attachment_media_kind(path: &str) -> Option<&str> {
     const IMAGE_EXTENSIONS: [&str; 10] = [
-        "jpg",
-        "jpeg",
-        "png",
-        "gif",
-        "heic",
-        "heif",
-        "bmp",
-        "tiff",
-        "tif",
-        "webp",
+        "jpg", "jpeg", "png", "gif", "heic", "heif", "bmp", "tiff", "tif", "webp",
     ];
     const VIDEO_EXTENSIONS: [&str; 6] = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
 

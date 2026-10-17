@@ -1,6 +1,6 @@
 use crate::logger;
 use hex;
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior};
 use sha2::{Digest, Sha256};
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -8,10 +8,10 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
-    process::Command,
     thread,
     time::Duration,
 };
+use uuid::Uuid;
 
 const MAX_COPY_ATTEMPTS: usize = 3;
 const HASH_RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -413,6 +413,70 @@ pub fn copy_and_verify_manifest_files(
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct AddressBookExport {
+    format: &'static str,
+    source: AddressBookMetadata,
+    contacts: Vec<ExportedContact>,
+    target_losses: [&'static str; 3],
+}
+
+#[derive(serde::Serialize)]
+struct AddressBookMetadata {
+    database_sha256: String,
+    platform: &'static str,
+    tables: [&'static str; 3],
+}
+
+#[derive(serde::Serialize)]
+struct ExportedContact {
+    source: ExportedRecordSource,
+    name: ExportedName,
+    organization: Option<String>,
+    phones: Vec<ExportedPhone>,
+    emails: Vec<ExportedEmail>,
+}
+
+#[derive(serde::Serialize)]
+struct ExportedRecordSource {
+    record_pk: i64,
+    record_uid: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ExportedName {
+    first: Option<String>,
+    middle: Option<String>,
+    last: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ExportedValueSource {
+    row_pk: i64,
+    row_uid: Option<String>,
+    is_primary: Option<bool>,
+}
+
+#[derive(serde::Serialize)]
+struct ExportedPhone {
+    source: ExportedValueSource,
+    value: Option<String>,
+    label: Option<String>,
+    #[serde(rename = "order")]
+    ordering_index: Option<i64>,
+    last_four: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ExportedEmail {
+    source: ExportedValueSource,
+    value: Option<String>,
+    normalized_value: Option<String>,
+    label: Option<String>,
+    #[serde(rename = "order")]
+    ordering_index: Option<i64>,
+}
+
 pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
     if !output_dir.is_dir() {
         return Err(format!(
@@ -486,19 +550,11 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
         )
     })?;
     let contacts_json = json_dir.join("addresses.json");
-    let scripts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts");
-    run_python_script(
-        &scripts_dir.join("mac2json.py"),
-        &[("--source", source_path), ("--output", &contacts_json)],
-    )?;
-    run_python_script(
-        &scripts_dir.join("json2iphone.py"),
-        &[
-            ("--input-json", &contacts_json),
-            ("--schema", &scripts_dir.join("iPhoneSyntheticSchema.sql")),
-            ("--output-database", new_name),
-        ],
-    )?;
+    let exported = export_address_book(source_path)?;
+    write_address_book_json(&exported, &contacts_json)?;
+    let schema_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("schema/iPhoneSyntheticSchema.sql");
+    create_synthetic_address_book(new_name, &schema_path, &exported)?;
     fs::remove_file(source_path).map_err(|err| {
         format!(
             "cannot remove converted source AddressBook database '{}': {}",
@@ -540,31 +596,523 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn run_python_script(script_path: &Path, arguments: &[(&str, &Path)]) -> Result<(), String> {
-    let mut command = Command::new("python3");
-    command.arg(script_path);
-    for (option, value) in arguments {
-        command.arg(option).arg(value);
+fn export_address_book(source_path: &Path) -> Result<AddressBookExport, String> {
+    let source_hash = calculate_sha256(source_path)?;
+    let connection = Connection::open_with_flags(source_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|err| {
+            format!(
+                "cannot open source AddressBook database '{}': {}",
+                source_path.display(),
+                err
+            )
+        })?;
+    connection
+        .pragma_update(None, "query_only", true)
+        .map_err(|err| format!("cannot enable read-only AddressBook queries: {err}"))?;
+
+    for (table, required_columns) in [
+        (
+            "ZABCDRECORD",
+            &[
+                "Z_PK",
+                "ZUNIQUEID",
+                "ZFIRSTNAME",
+                "ZMIDDLENAME",
+                "ZLASTNAME",
+                "ZORGANIZATION",
+            ][..],
+        ),
+        (
+            "ZABCDPHONENUMBER",
+            &[
+                "Z_PK",
+                "ZUNIQUEID",
+                "ZOWNER",
+                "ZFULLNUMBER",
+                "ZLABEL",
+                "ZORDERINGINDEX",
+                "ZISPRIMARY",
+                "ZLASTFOURDIGITS",
+            ][..],
+        ),
+        (
+            "ZABCDEMAILADDRESS",
+            &[
+                "Z_PK",
+                "ZUNIQUEID",
+                "ZOWNER",
+                "ZADDRESS",
+                "ZADDRESSNORMALIZED",
+                "ZLABEL",
+                "ZORDERINGINDEX",
+                "ZISPRIMARY",
+            ][..],
+        ),
+    ] {
+        require_address_book_columns(&connection, table, required_columns)?;
     }
-    let output = command.output().map_err(|err| {
+
+    let records = {
+        let mut statement = connection
+            .prepare(
+                "SELECT
+                    r.Z_PK,
+                    r.ZUNIQUEID,
+                    r.ZFIRSTNAME,
+                    r.ZMIDDLENAME,
+                    r.ZLASTNAME,
+                    r.ZORGANIZATION
+                 FROM ZABCDRECORD AS r
+                 WHERE r.ZFIRSTNAME IS NOT NULL
+                    OR r.ZMIDDLENAME IS NOT NULL
+                    OR r.ZLASTNAME IS NOT NULL
+                    OR r.ZORGANIZATION IS NOT NULL
+                    OR EXISTS (
+                        SELECT 1 FROM ZABCDPHONENUMBER AS p WHERE p.ZOWNER = r.Z_PK
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM ZABCDEMAILADDRESS AS e WHERE e.ZOWNER = r.Z_PK
+                    )
+                 ORDER BY r.Z_PK",
+            )
+            .map_err(|err| format!("cannot prepare AddressBook record query: {err}"))?;
+        statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                ))
+            })
+            .map_err(|err| format!("cannot query AddressBook records: {err}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| format!("cannot read an AddressBook record: {err}"))?
+    };
+
+    let mut contacts = Vec::with_capacity(records.len());
+    for (record_pk, record_uid, first, middle, last, organization) in records {
+        contacts.push(ExportedContact {
+            source: ExportedRecordSource {
+                record_pk,
+                record_uid,
+            },
+            name: ExportedName {
+                first,
+                middle,
+                last,
+            },
+            organization,
+            phones: export_phone_values(&connection, record_pk)?,
+            emails: export_email_values(&connection, record_pk)?,
+        });
+    }
+
+    Ok(AddressBookExport {
+        format: "apple-addressbook-forensic-v1",
+        source: AddressBookMetadata {
+            database_sha256: source_hash,
+            platform: "macOS",
+            tables: ["ZABCDRECORD", "ZABCDPHONENUMBER", "ZABCDEMAILADDRESS"],
+        },
+        contacts,
+        target_losses: [
+            "Mac primary-value flags are preserved in JSON but have no direct ABMultiValue equivalent.",
+            "Mac record and child unique IDs are preserved as source provenance only.",
+            "Images, postal addresses, sync metadata, account metadata, history, and search artifacts are omitted.",
+        ],
+    })
+}
+
+fn require_address_book_columns(
+    connection: &Connection,
+    table: &str,
+    required_columns: &[&str],
+) -> Result<(), String> {
+    let mut statement = connection
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|err| format!("cannot inspect source table {table}: {err}"))?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|err| format!("cannot query source table {table} columns: {err}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read source table {table} columns: {err}"))?;
+    let missing: Vec<_> = required_columns
+        .iter()
+        .filter(|column| !columns.iter().any(|actual| actual == **column))
+        .copied()
+        .collect();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{table} is missing required columns: {}",
+            missing.join(", ")
+        ))
+    }
+}
+
+fn export_phone_values(
+    connection: &Connection,
+    record_pk: i64,
+) -> Result<Vec<ExportedPhone>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT
+                Z_PK, ZUNIQUEID, ZFULLNUMBER, ZLABEL, ZORDERINGINDEX, ZISPRIMARY, ZLASTFOURDIGITS
+             FROM ZABCDPHONENUMBER
+             WHERE ZOWNER = ?1
+             ORDER BY ZORDERINGINDEX, Z_PK",
+        )
+        .map_err(|err| format!("cannot prepare phone query for contact {record_pk}: {err}"))?;
+    statement
+        .query_map([record_pk], |row| {
+            Ok(ExportedPhone {
+                source: ExportedValueSource {
+                    row_pk: row.get(0)?,
+                    row_uid: row.get(1)?,
+                    is_primary: row
+                        .get::<_, Option<i64>>(5)?
+                        .map(|is_primary| is_primary != 0),
+                },
+                value: row.get(2)?,
+                label: row.get(3)?,
+                ordering_index: row.get(4)?,
+                last_four: row.get(6)?,
+            })
+        })
+        .map_err(|err| format!("cannot query phone values for contact {record_pk}: {err}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read phone value for contact {record_pk}: {err}"))
+}
+
+fn export_email_values(
+    connection: &Connection,
+    record_pk: i64,
+) -> Result<Vec<ExportedEmail>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT
+                Z_PK, ZUNIQUEID, ZADDRESS, ZADDRESSNORMALIZED, ZLABEL, ZORDERINGINDEX, ZISPRIMARY
+             FROM ZABCDEMAILADDRESS
+             WHERE ZOWNER = ?1
+             ORDER BY ZORDERINGINDEX, Z_PK",
+        )
+        .map_err(|err| format!("cannot prepare email query for contact {record_pk}: {err}"))?;
+    statement
+        .query_map([record_pk], |row| {
+            Ok(ExportedEmail {
+                source: ExportedValueSource {
+                    row_pk: row.get(0)?,
+                    row_uid: row.get(1)?,
+                    is_primary: row
+                        .get::<_, Option<i64>>(6)?
+                        .map(|is_primary| is_primary != 0),
+                },
+                value: row.get(2)?,
+                normalized_value: row.get(3)?,
+                label: row.get(4)?,
+                ordering_index: row.get(5)?,
+            })
+        })
+        .map_err(|err| format!("cannot query email values for contact {record_pk}: {err}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("cannot read email value for contact {record_pk}: {err}"))
+}
+
+fn write_address_book_json(export: &AddressBookExport, output_path: &Path) -> Result<(), String> {
+    let temporary_path = output_path.with_extension("json.tmp");
+    let mut file = fs::File::create(&temporary_path).map_err(|err| {
         format!(
-            "cannot start Python script '{}': {}",
-            script_path.display(),
+            "cannot create intermediate AddressBook JSON '{}': {}",
+            temporary_path.display(),
             err
         )
     })?;
+    serde_json::to_writer_pretty(&mut file, export)
+        .map_err(|err| format!("cannot serialize intermediate AddressBook JSON: {err}"))?;
+    file.write_all(b"\n").map_err(|err| {
+        format!(
+            "cannot finish intermediate AddressBook JSON '{}': {}",
+            temporary_path.display(),
+            err
+        )
+    })?;
+    file.sync_all().map_err(|err| {
+        format!(
+            "cannot sync intermediate AddressBook JSON '{}': {}",
+            temporary_path.display(),
+            err
+        )
+    })?;
+    fs::rename(&temporary_path, output_path).map_err(|err| {
+        format!(
+            "cannot write intermediate AddressBook JSON '{}': {}",
+            output_path.display(),
+            err
+        )
+    })
+}
 
-    if output.status.success() {
-        return Ok(());
+fn create_synthetic_address_book(
+    database_path: &Path,
+    schema_path: &Path,
+    export: &AddressBookExport,
+) -> Result<(), String> {
+    if database_path.exists() {
+        return Err(format!(
+            "refusing to overwrite existing generated AddressBook database: {}",
+            database_path.display()
+        ));
+    }
+    let schema = fs::read_to_string(schema_path).map_err(|err| {
+        format!(
+            "cannot read synthetic AddressBook schema '{}': {}",
+            schema_path.display(),
+            err
+        )
+    })?;
+    let mut connection = Connection::open(database_path).map_err(|err| {
+        format!(
+            "cannot create synthetic AddressBook database '{}': {}",
+            database_path.display(),
+            err
+        )
+    })?;
+    connection
+        .execute_batch(&schema)
+        .map_err(|err| format!("cannot initialize synthetic AddressBook schema: {err}"))?;
+    let integrity: String = connection
+        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+        .map_err(|err| format!("cannot check synthetic AddressBook database integrity: {err}"))?;
+    if integrity != "ok" {
+        return Err(format!(
+            "synthetic AddressBook database integrity check failed: {integrity}"
+        ));
     }
 
-    Err(format!(
-        "Python script '{}' failed with status {}: {}{}",
-        script_path.display(),
-        output.status,
-        String::from_utf8_lossy(&output.stderr),
-        String::from_utf8_lossy(&output.stdout)
-    ))
+    initialize_synthetic_store(&connection, &export.source.database_sha256)?;
+    require_synthetic_tables(&connection)?;
+    let person_count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM ABPerson", [], |row| row.get(0))
+        .map_err(|err| format!("cannot inspect synthetic AddressBook people: {err}"))?;
+    let multivalue_count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM ABMultiValue", [], |row| row.get(0))
+        .map_err(|err| format!("cannot inspect synthetic AddressBook values: {err}"))?;
+    if person_count != 0 || multivalue_count != 0 {
+        return Err("synthetic AddressBook destination must be empty".to_owned());
+    }
+    let store_exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM ABStore WHERE ROWID = 0)",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| format!("cannot verify synthetic AddressBook local store: {err}"))?;
+    if !store_exists {
+        return Err("synthetic AddressBook local store row 0 does not exist".to_owned());
+    }
+
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|err| format!("cannot start synthetic AddressBook contact load: {err}"))?;
+    load_exported_contacts(&transaction, export)?;
+    transaction
+        .commit()
+        .map_err(|err| format!("cannot commit synthetic AddressBook contacts: {err}"))?;
+    Ok(())
+}
+
+fn initialize_synthetic_store(connection: &Connection, source_hash: &str) -> Result<(), String> {
+    let store: Option<i64> = connection
+        .query_row(
+            "SELECT ROWID FROM ABStore WHERE ROWID = 0 OR StoreInternalIdentifier = 'local'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|err| format!("cannot inspect synthetic AddressBook local store: {err}"))?;
+    match store {
+        Some(0) => Ok(()),
+        Some(_) => {
+            Err("the database already contains a local store, but it is not ROWID 0".to_owned())
+        }
+        None => {
+            connection
+                .execute(
+                    "INSERT INTO ABStore(
+                        ROWID, Type, StoreInternalIdentifier, AccountID, Enabled,
+                        MeIdentifier, Capabilities, guid
+                     ) VALUES (0, 0, 'local', -1, 0, -1, 0, ?1)",
+                    [deterministic_guid(source_hash, "store:local")],
+                )
+                .map_err(|err| {
+                    format!("cannot initialize synthetic AddressBook local store: {err}")
+                })?;
+            Ok(())
+        }
+    }
+}
+
+fn require_synthetic_tables(connection: &Connection) -> Result<(), String> {
+    for table in [
+        "ABPerson",
+        "ABStore",
+        "ABMultiValue",
+        "ABMultiValueLabel",
+        "ABPhoneLastFour",
+    ] {
+        let exists: bool = connection
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1
+                 )",
+                [table],
+                |row| row.get(0),
+            )
+            .map_err(|err| format!("cannot inspect synthetic AddressBook table {table}: {err}"))?;
+        if !exists {
+            return Err(format!(
+                "synthetic AddressBook schema is missing required table {table}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn load_exported_contacts(
+    transaction: &Transaction<'_>,
+    export: &AddressBookExport,
+) -> Result<(), String> {
+    for contact in &export.contacts {
+        let identity = format!("person:{}", contact.source.record_pk);
+        let person_guid = deterministic_guid(&export.source.database_sha256, &identity);
+        transaction
+            .execute(
+                "INSERT INTO ABPerson(First, Last, Middle, Organization, StoreID, guid)
+                 VALUES (?1, ?2, ?3, ?4, 0, ?5)",
+                rusqlite::params![
+                    contact.name.first,
+                    contact.name.last,
+                    contact.name.middle,
+                    contact.organization,
+                    person_guid
+                ],
+            )
+            .map_err(|err| {
+                format!(
+                    "cannot insert synthetic contact {}: {err}",
+                    contact.source.record_pk
+                )
+            })?;
+        let person_id = transaction.last_insert_rowid();
+
+        for phone in &contact.phones {
+            let multivalue_id = insert_synthetic_multivalue(
+                transaction,
+                person_id,
+                &export.source.database_sha256,
+                &identity,
+                phone.source.row_pk,
+                phone.value.as_deref(),
+                phone.label.as_deref(),
+                phone.ordering_index,
+                3,
+            )?;
+            if phone.last_four.as_deref().is_some_and(is_four_ascii_digits) {
+                transaction
+                    .execute(
+                        "INSERT INTO ABPhoneLastFour(multivalue_id, value) VALUES (?1, ?2)",
+                        rusqlite::params![multivalue_id, phone.last_four],
+                    )
+                    .map_err(|err| {
+                        format!("cannot insert synthetic phone last-four value: {err}")
+                    })?;
+            }
+        }
+        for email in &contact.emails {
+            insert_synthetic_multivalue(
+                transaction,
+                person_id,
+                &export.source.database_sha256,
+                &identity,
+                email.source.row_pk,
+                email.value.as_deref(),
+                email.label.as_deref(),
+                email.ordering_index,
+                4,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn insert_synthetic_multivalue(
+    connection: &Connection,
+    record_id: i64,
+    source_hash: &str,
+    contact_identity: &str,
+    source_row_pk: i64,
+    value: Option<&str>,
+    label: Option<&str>,
+    ordering_index: Option<i64>,
+    property_code: i64,
+) -> Result<i64, String> {
+    let value = value.filter(|value| !value.is_empty()).ok_or_else(|| {
+        format!("multivalue for contact {contact_identity} must be a nonempty string")
+    })?;
+    let identifier = ordering_index.filter(|order| *order >= 0).ok_or_else(|| {
+        format!("multivalue order for contact {contact_identity} must be nonnegative")
+    })?;
+    let label_id = match label.filter(|label| !label.is_empty()) {
+        Some(label) => {
+            connection
+                .execute(
+                    "INSERT OR IGNORE INTO ABMultiValueLabel(value) VALUES (?1)",
+                    [label],
+                )
+                .map_err(|err| format!("cannot add synthetic AddressBook label: {err}"))?;
+            Some(
+                connection
+                    .query_row(
+                        "SELECT ROWID FROM ABMultiValueLabel WHERE value = ?1",
+                        [label],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .map_err(|err| format!("cannot resolve synthetic AddressBook label: {err}"))?,
+            )
+        }
+        None => None,
+    };
+    let guid = deterministic_guid(
+        source_hash,
+        &format!("multivalue:{contact_identity}:{property_code}:{source_row_pk}"),
+    );
+    connection
+        .execute(
+            "INSERT INTO ABMultiValue(record_id, property, identifier, label, value, guid)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![record_id, property_code, identifier, label_id, value, guid],
+        )
+        .map_err(|err| format!("cannot insert synthetic AddressBook value: {err}"))?;
+    Ok(connection.last_insert_rowid())
+}
+
+fn is_four_ascii_digits(value: &str) -> bool {
+    value.len() == 4 && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn deterministic_guid(source_hash: &str, identity: &str) -> String {
+    let namespace = Uuid::from_bytes([
+        0x52, 0xac, 0x16, 0x9a, 0x51, 0x44, 0x4a, 0x54, 0xa6, 0xd8, 0x99, 0xfe, 0x9d, 0xe0, 0xca,
+        0x95,
+    ]);
+    Uuid::new_v5(&namespace, format!("{source_hash}:{identity}").as_bytes())
+        .to_string()
+        .to_uppercase()
 }
 
 fn copy_verified_tree(
