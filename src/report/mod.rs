@@ -104,7 +104,6 @@ pub fn generate(
 
     copy_attachments(&output_dir)?;
 
-
     let meta = if let Some(path) = meta_path {
         load_metadata(&path)?
     } else {
@@ -327,7 +326,12 @@ pub fn generate(
     // Media page
     let media_data: Vec<MsgContactTuple> = joined_data
         .iter()
-        .filter(|(m, _)| m.attachment.as_ref().map(|p| attachment_media_kind(p).is_some()).unwrap_or(false))
+        .filter(|(m, _)| {
+            m.attachment
+                .as_ref()
+                .map(|p| attachment_media_kind(p).is_some())
+                .unwrap_or(false)
+        })
         .map(|(m, c)| (m.clone(), c.clone()))
         .collect();
 
@@ -631,8 +635,9 @@ mod tests {
         )
         .expect("generate report");
 
-        let messages_report = fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
-            .expect("read generated messages report");
+        let messages_report =
+            fs::read_to_string(temp_dir.path().join("report/messages/index.html"))
+                .expect("read generated messages report");
         assert!(messages_report.contains("No messages to report"));
     }
 

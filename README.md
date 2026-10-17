@@ -266,6 +266,18 @@ apple-message-forensics report
 Reports will be in a subfolder named by timestamp in the format `yyyy-mm-dd-HH-mm-ss`.
 Running multiple reports will add a new report to the `reports` subfolder and not overwrite any existing report.
 
+### Create a Cellebrite-Style Filesystem
+
+After collecting evidence, create a iOS-style filesystem under the output directory that can be processed by Cellebrite Physical Analyzer:
+
+```bash
+apple-message-forensics cellebrite
+```
+
+The command verifies copied files against `evidence/working_copy/hash_manifest.txt`, places
+AddressBook and Messages data under `cellebrite/private/var/mobile/Library/`, and renames
+`chat.db` and its SQLite sidecars to `sms.db` names in the `SMS` folder.
+
 ### Specify Date Range
 
 You can filter date ranges for the report.

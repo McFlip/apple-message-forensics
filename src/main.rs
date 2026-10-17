@@ -48,6 +48,8 @@ enum Commands {
     Report,
     /// Package vault and report for delivery
     Deliver,
+    /// Create a Cellebrite-style filesystem from existing evidence
+    Cellebrite,
     /// Collect everything and generate report (default behavior)
     Collect,
 }
@@ -312,6 +314,16 @@ fn main() {
             logger::info_fmt(format_args!(
                 "Delivery package created at {}",
                 delivery_dir.display()
+            ));
+        }
+        Some(Commands::Cellebrite) => {
+            if let Err(err) = apple_message_forensics::create_cellebrite_output(&args.output) {
+                logger::error_fmt(format_args!("error: {err}"));
+                std::process::exit(1);
+            }
+            logger::info_fmt(format_args!(
+                "Cellebrite filesystem created at {}",
+                args.output.join("cellebrite").display()
             ));
         }
         Some(Commands::Collect) | None => {
@@ -599,6 +611,14 @@ mod tests {
 
         assert!(matches!(args.command, Some(Commands::Collect)));
         assert_eq!(args.home, Some(std::path::PathBuf::from("/tmp/e2e-home")));
+    }
+
+    #[test]
+    fn cellebrite_subcommand_parses() {
+        let args = Args::try_parse_from(["apple-message-forensics", "cellebrite"])
+            .expect("parse Cellebrite subcommand");
+
+        assert!(matches!(args.command, Some(Commands::Cellebrite)));
     }
 
     #[test]
