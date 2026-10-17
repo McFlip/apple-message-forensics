@@ -8,6 +8,7 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
+    process::Command,
     thread,
     time::Duration,
 };
@@ -473,14 +474,41 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
         &manifest_hashes,
     )?;
 
-    // TODO: Change with actual SQL migration. Testing with simple file rename for now.
     let lib_addr_dir = &library_dir.join("AddressBook");
     let source_path = &lib_addr_dir.join("AddressBook-v22.abcddb");
     let new_name = &lib_addr_dir.join("AddressBook.sqlitedb");
-    fs::rename(source_path, new_name).map_err(|err| {
+    let json_dir = output_dir.join("json");
+    fs::create_dir_all(&json_dir).map_err(|err| {
         format!(
-            "cannot rename '{}' to '{}': {}",
+            "cannot create JSON output directory '{}': {}",
+            json_dir.display(),
+            err
+        )
+    })?;
+    let contacts_json = json_dir.join("addresses.json");
+    let scripts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts");
+    run_python_script(
+        &scripts_dir.join("mac2json.py"),
+        &[("--source", source_path), ("--output", &contacts_json)],
+    )?;
+    run_python_script(
+        &scripts_dir.join("json2iphone.py"),
+        &[
+            ("--input-json", &contacts_json),
+            ("--schema", &scripts_dir.join("iPhoneSyntheticSchema.sql")),
+            ("--output-database", new_name),
+        ],
+    )?;
+    fs::remove_file(source_path).map_err(|err| {
+        format!(
+            "cannot remove converted source AddressBook database '{}': {}",
             source_path.display(),
+            err
+        )
+    })?;
+    set_read_only(new_name).map_err(|err| {
+        format!(
+            "cannot set read-only permissions on generated AddressBook database '{}': {}",
             new_name.display(),
             err
         )
@@ -510,6 +538,33 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn run_python_script(script_path: &Path, arguments: &[(&str, &Path)]) -> Result<(), String> {
+    let mut command = Command::new("python3");
+    command.arg(script_path);
+    for (option, value) in arguments {
+        command.arg(option).arg(value);
+    }
+    let output = command.output().map_err(|err| {
+        format!(
+            "cannot start Python script '{}': {}",
+            script_path.display(),
+            err
+        )
+    })?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "Python script '{}' failed with status {}: {}{}",
+        script_path.display(),
+        output.status,
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    ))
 }
 
 fn copy_verified_tree(

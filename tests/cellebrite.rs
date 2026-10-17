@@ -72,9 +72,29 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
 
     create_cellebrite_output(output_dir.path()).expect("create Cellebrite filesystem");
 
+    let intermediate_json = output_dir.path().join("json/addresses.json");
+    let exported_contacts: serde_json::Value =
+        serde_json::from_slice(&fs::read(intermediate_json).expect("read exported contacts"))
+            .expect("parse exported contacts");
+    assert_eq!(exported_contacts["format"], "apple-addressbook-forensic-v1");
+    assert!(
+        exported_contacts["contacts"]
+            .as_array()
+            .expect("contacts array")
+            .iter()
+            .any(|contact| {
+                contact["name"]["first"] == "Alice" && contact["name"]["last"] == "Example"
+            })
+    );
+
     let cellebrite_root = output_dir
         .path()
         .join("cellebrite/private/var/mobile/Library");
+    assert!(
+        !cellebrite_root
+            .join("AddressBook/AddressBook-v22.abcddb")
+            .exists()
+    );
     let output_address_book_path = cellebrite_root.join("AddressBook/AddressBook.sqlitedb");
     assert!(output_address_book_path.is_file());
     let address_book =

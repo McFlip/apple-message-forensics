@@ -1,0 +1,353 @@
+{
+  "contacts": [
+    {
+      "emails": [],
+      "name": {
+        "first": "Aaron",
+        "last": "Adams",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0001",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 1,
+            "row_uid": "FIXTURE-PHONE-001"
+          },
+          "value": "+15550000001"
+        },
+        {
+          "label": null,
+          "last_four": "0011",
+          "order": 1,
+          "source": {
+            "is_primary": false,
+            "row_pk": 11,
+            "row_uid": "FIXTURE-PHONE-011"
+          },
+          "value": "+15550000011"
+        }
+      ],
+      "source": {
+        "record_pk": 1,
+        "record_uid": "FIXTURE-CONTACT-001"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Beth",
+        "last": "Baker",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0002",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 2,
+            "row_uid": "FIXTURE-PHONE-002"
+          },
+          "value": "+15550000002"
+        }
+      ],
+      "source": {
+        "record_pk": 2,
+        "record_uid": "FIXTURE-CONTACT-002"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Carl",
+        "last": "Carter",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0003",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 3,
+            "row_uid": "FIXTURE-PHONE-003"
+          },
+          "value": "+15550000003"
+        }
+      ],
+      "source": {
+        "record_pk": 3,
+        "record_uid": "FIXTURE-CONTACT-003"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Dana",
+        "last": "Dane",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0004",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 4,
+            "row_uid": "FIXTURE-PHONE-004"
+          },
+          "value": "+15550000004"
+        }
+      ],
+      "source": {
+        "record_pk": 4,
+        "record_uid": "FIXTURE-CONTACT-004"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Evan",
+        "last": "Ford",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0005",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 5,
+            "row_uid": "FIXTURE-PHONE-005"
+          },
+          "value": "+15550000005"
+        }
+      ],
+      "source": {
+        "record_pk": 5,
+        "record_uid": "FIXTURE-CONTACT-005"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Fay",
+        "last": "Fisher",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0006",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 6,
+            "row_uid": "FIXTURE-PHONE-006"
+          },
+          "value": "+15550000006"
+        }
+      ],
+      "source": {
+        "record_pk": 6,
+        "record_uid": "FIXTURE-CONTACT-006"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Gus",
+        "last": "Grant",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0007",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 7,
+            "row_uid": "FIXTURE-PHONE-007"
+          },
+          "value": "+15550000007"
+        }
+      ],
+      "source": {
+        "record_pk": 7,
+        "record_uid": "FIXTURE-CONTACT-007"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Hope",
+        "last": "Hughes",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0008",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 8,
+            "row_uid": "FIXTURE-PHONE-008"
+          },
+          "value": "+15550000008"
+        }
+      ],
+      "source": {
+        "record_pk": 8,
+        "record_uid": "FIXTURE-CONTACT-008"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Ivy",
+        "last": "Irving",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0009",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 9,
+            "row_uid": "FIXTURE-PHONE-009"
+          },
+          "value": "+15550000009"
+        }
+      ],
+      "source": {
+        "record_pk": 9,
+        "record_uid": "FIXTURE-CONTACT-009"
+      }
+    },
+    {
+      "emails": [],
+      "name": {
+        "first": "Joan",
+        "last": "Jones",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [
+        {
+          "label": null,
+          "last_four": "0010",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 10,
+            "row_uid": "FIXTURE-PHONE-010"
+          },
+          "value": "+15550000010"
+        }
+      ],
+      "source": {
+        "record_pk": 10,
+        "record_uid": "FIXTURE-CONTACT-010"
+      }
+    },
+    {
+      "emails": [
+        {
+          "label": null,
+          "normalized_value": "alice@example.com",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 1,
+            "row_uid": "FIXTURE-EMAIL-001"
+          },
+          "value": "alice@example.com"
+        },
+        {
+          "label": null,
+          "normalized_value": "alice@alt.example.com",
+          "order": 1,
+          "source": {
+            "is_primary": false,
+            "row_pk": 2,
+            "row_uid": "FIXTURE-EMAIL-002"
+          },
+          "value": "alice@alt.example.com"
+        }
+      ],
+      "name": {
+        "first": "Alice",
+        "last": "Example",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [],
+      "source": {
+        "record_pk": 11,
+        "record_uid": "FIXTURE-CONTACT-011"
+      }
+    },
+    {
+      "emails": [
+        {
+          "label": null,
+          "normalized_value": "bob@example.com",
+          "order": 0,
+          "source": {
+            "is_primary": true,
+            "row_pk": 3,
+            "row_uid": "FIXTURE-EMAIL-003"
+          },
+          "value": "bob@example.com"
+        }
+      ],
+      "name": {
+        "first": "Bob",
+        "last": "Baker",
+        "middle": null
+      },
+      "organization": null,
+      "phones": [],
+      "source": {
+        "record_pk": 12,
+        "record_uid": "FIXTURE-CONTACT-012"
+      }
+    }
+  ],
+  "format": "apple-addressbook-forensic-v1",
+  "source": {
+    "database_sha256": "b0d1487b3b17619de5af2667fcfbbff4701a7314a26e420780622b8194107e59",
+    "platform": "macOS",
+    "tables": [
+      "ZABCDRECORD",
+      "ZABCDPHONENUMBER",
+      "ZABCDEMAILADDRESS"
+    ]
+  },
+  "target_losses": [
+    "Mac primary-value flags are preserved in JSON but have no direct ABMultiValue equivalent.",
+    "Mac record and child unique IDs are preserved as source provenance only.",
+    "Images, postal addresses, sync metadata, account metadata, history, and search artifacts are omitted."
+  ]
+}
