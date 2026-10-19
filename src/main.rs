@@ -313,6 +313,81 @@ fn main() {
             let dest_vault = delivery_dir.join("vault.zip");
             std::fs::copy(&vault_path, &dest_vault).expect("copy vault to delivery");
 
+            let validation_script = PathBuf::from("scripts").join("validate_hashes.ps1");
+            if let Err(e) =
+                std::fs::copy(&validation_script, delivery_dir.join("validate_hashes.ps1"))
+            {
+                logger::error_fmt(format_args!("cannot copy hash validation script: {}", e));
+                std::process::exit(1);
+            }
+
+            let cellebrite_dir = args.output.join("cellebrite");
+            let cellebrite_zip = cellebrite_dir.join("fake_iPhone.zip");
+            let cellebrite_manifest = cellebrite_dir.join("fake_iPhone.zip.sha256");
+            let delivery_cellebrite_zip = delivery_dir.join("fake_iPhone.zip");
+            let delivery_cellebrite_manifest = delivery_dir.join("fake_iPhone.zip.sha256");
+
+            for stale_path in [&delivery_cellebrite_zip, &delivery_cellebrite_manifest] {
+                if stale_path.exists()
+                    && let Err(e) = std::fs::remove_file(stale_path)
+                {
+                    logger::error_fmt(format_args!(
+                        "cannot remove stale delivery file '{}': {}",
+                        stale_path.display(),
+                        e
+                    ));
+                    std::process::exit(1);
+                }
+            }
+
+            if cellebrite_zip.is_file() && cellebrite_manifest.is_file() {
+                if let Err(e) = std::fs::copy(&cellebrite_manifest, &delivery_cellebrite_manifest) {
+                    logger::error_fmt(format_args!("cannot copy Cellebrite hash manifest: {}", e));
+                    std::process::exit(1);
+                }
+                if let Err(e) = apple_message_forensics::copy_and_verify_manifest_files(
+                    &cellebrite_manifest,
+                    &cellebrite_dir,
+                    &delivery_dir,
+                ) {
+                    logger::error_fmt(format_args!("cannot copy and verify Cellebrite ZIP: {}", e));
+                    std::process::exit(1);
+                }
+                logger::info_fmt(format_args!(
+                    "Cellebrite ZIP verified at {}",
+                    delivery_cellebrite_zip.display()
+                ));
+            }
+
+            let deliverable_zip = delivery_dir.join("deliverable.zip");
+            let deliverable_manifest = delivery_dir.join("deliverable.zip.sha256");
+            for stale_path in [&deliverable_zip, &deliverable_manifest] {
+                if stale_path.exists()
+                    && let Err(e) = std::fs::remove_file(stale_path)
+                {
+                    logger::error_fmt(format_args!(
+                        "cannot remove previous delivery artifact '{}': {}",
+                        stale_path.display(),
+                        e
+                    ));
+                    std::process::exit(1);
+                }
+            }
+
+            if let Err(e) =
+                apple_message_forensics::archive_evidence(&delivery_dir, &deliverable_zip)
+            {
+                logger::error_fmt(format_args!("cannot create delivery archive: {}", e));
+                std::process::exit(1);
+            }
+            if let Err(e) = apple_message_forensics::write_sha256_manifest(&deliverable_zip) {
+                logger::error_fmt(format_args!(
+                    "cannot create delivery archive hash manifest: {}",
+                    e
+                ));
+                std::process::exit(1);
+            }
+
             logger::info_fmt(format_args!(
                 "Delivery package created at {}",
                 delivery_dir.display()

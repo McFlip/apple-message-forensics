@@ -358,6 +358,7 @@ Build the reader and the Axum web server:
 just build-reader
 ```
 
+
 After generating the report in the default `output` folder, bundle reader executables with the report:
 
 ```bash
@@ -368,16 +369,10 @@ Run `output/report/reader` to start the local report server and open the report 
 
 ### Deliver
 
-This creates a ZIP archive with everything included (except previous deliveries) and optionally password-protects the ZIP.
-A text file with matching name will have the hashes of the deliverable.
-
-Passwords will be entered in a prompt and no characters will be echoed to the screen.
-You will be prompted for the password twice.
-
-You can also specify a different destination if you don't want to use the default `delivery` subfolder.
+The `deliver` command places `report.zip`, `vault.zip`, and `validate_hashes.ps1` in the `delivery` folder. When both `output/cellebrite/fake_iPhone.zip` and its `.sha256` manifest exist, they are copied into `delivery` and the copied ZIP is verified against the manifest. The folder contents are packaged as `delivery/deliverable.zip`, with its SHA-256 manifest at `delivery/deliverable.zip.sha256`.
 
 ```bash
-apple-message-forensics deliver --password --destination "path/to/destination"
+apple-message-forensics deliver
 ```
 
 If you need more advanced packaging capabilities, such as chunking to a maximum size or delivering only the report,
@@ -562,4 +557,3 @@ Build
 ```bash
 just build-reader
 ```
-

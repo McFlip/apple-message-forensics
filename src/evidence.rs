@@ -140,6 +140,33 @@ fn calculate_sha256(path: &Path) -> Result<String, String> {
     Ok(hex::encode(hash))
 }
 
+pub fn write_sha256_manifest(file_path: &Path) -> Result<PathBuf, String> {
+    let file_name = file_path.file_name().ok_or_else(|| {
+        format!(
+            "cannot determine file name for hash manifest '{}'",
+            file_path.display()
+        )
+    })?;
+    let manifest_path = file_path.with_file_name(format!("{}.sha256", file_name.to_string_lossy()));
+    let hash = calculate_sha256(file_path)?;
+    let mut manifest = fs::File::create(&manifest_path).map_err(|err| {
+        format!(
+            "cannot create hash manifest '{}': {}",
+            manifest_path.display(),
+            err
+        )
+    })?;
+    writeln!(manifest, "{}  {}", hash, file_name.to_string_lossy()).map_err(|err| {
+        format!(
+            "cannot write hash manifest '{}': {}",
+            manifest_path.display(),
+            err
+        )
+    })?;
+
+    Ok(manifest_path)
+}
+
 fn find_evidence_files(home_dir: &Path) -> Result<Vec<PathBuf>, String> {
     fn visit_directory(
         directory: &Path,

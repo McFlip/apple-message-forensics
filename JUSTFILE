@@ -13,6 +13,7 @@ clean:
   rm -rf output
 
 # run but don't launch server
+# FIX: using the fakehome fixture no longer works due to getting a real UUID for the contacts container
 build: check clean
   cargo run -- --meta tests/fixtures/mock_metadata.yaml --home tests/fixtures/fakehome
 
@@ -65,6 +66,10 @@ filter_both: check clean
 
 # Deliver
 deliver: build build-reader
+  cargo run -- deliver
+
+# Deliver from a real build
+deliver-real: build-real build-reader
   cargo run -- deliver
 
 # Find iCloud Synced Address Book

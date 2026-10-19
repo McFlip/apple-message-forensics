@@ -87,4 +87,5 @@
 ## Release
 - [ ] Test on real targets
 - [ ] Test on other examiner's machines
+- [ ] `fakehome` test fixture broken due to using a real UUID collected by the Swift script query to Contacts
 - [ ] Add macOS Intel build

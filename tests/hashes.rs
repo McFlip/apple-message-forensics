@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use apple_message_forensics::{setup_output_dir, write_evidence_hashes};
+use apple_message_forensics::{setup_output_dir, write_evidence_hashes, write_sha256_manifest};
 use tempfile::tempdir;
 
 struct ExpectedHash {
@@ -77,6 +77,24 @@ fn writes_sha256_hashes_for_collected_messages_and_address_book_evidence() {
             "hash manifest did not contain expected line:\n{expected_line}\n\nactual manifest:\n{manifest}",
         );
     }
+}
+
+#[test]
+fn writes_a_sha256_manifest_for_an_archive() {
+    let temp_dir = tempdir().expect("create temporary directory");
+    let archive_path = temp_dir.path().join("deliverable.zip");
+    fs::write(&archive_path, b"abc").expect("write archive");
+
+    let manifest_path = write_sha256_manifest(&archive_path).expect("write archive hash manifest");
+
+    assert_eq!(
+        manifest_path,
+        temp_dir.path().join("deliverable.zip.sha256")
+    );
+    assert_eq!(
+        fs::read_to_string(manifest_path).expect("read archive hash manifest"),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  deliverable.zip\n"
+    );
 }
 
 fn write_file(path: &Path, contents: &[u8]) {
