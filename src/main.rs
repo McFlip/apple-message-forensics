@@ -50,6 +50,8 @@ enum Commands {
     Deliver,
     /// Create a Cellebrite-style filesystem from existing evidence
     Cellebrite,
+    /// Find the iCloud Address Book source
+    FindIcloudContacts,
     /// Collect everything and generate report (default behavior)
     Collect,
 }
@@ -325,6 +327,23 @@ fn main() {
                 "Cellebrite filesystem created at {}",
                 args.output.join("cellebrite").display()
             ));
+        }
+        Some(Commands::FindIcloudContacts) => {
+            let result =
+                apple_message_forensics::source_discovery::discover_address_books(&args.output)
+                    .and_then(|containers_path| {
+                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                            &containers_path,
+                        )
+                    });
+
+            match result {
+                Ok(uuid) => println!("Found iCloud Address Book source with UUID: {uuid}"),
+                Err(error) => {
+                    println!("{error}");
+                    std::process::exit(1);
+                }
+            }
         }
         Some(Commands::Collect) | None => {
             // Standard collection and report flow

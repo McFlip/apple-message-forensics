@@ -63,6 +63,10 @@ filter_both: check clean
 deliver: build build-reader
   cargo run -- deliver
 
+# Find iCloud Synced Address Book
+find_iCloud: check clean
+  cargo run -- find-icloud-contacts
+
 # Deliver Cellebrite ZIP
 cellebrite: build
   cargo run -- --home tests/fixtures/fakehome cellebrite

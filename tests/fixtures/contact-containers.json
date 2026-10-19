@@ -1,0 +1,25 @@
+{
+  "addressBookRoot": "/Users/example/Library/Application Support/AddressBook/Sources",
+  "containers": [
+    {
+      "identifier": "01234567-89AB-CDEF-0123-456789ABCDEF:ABAccount",
+      "isICloudCandidate": true,
+      "name": "iCloud",
+      "sourceDirectoryExists": true,
+      "sourcePath": "/Users/example/Library/Application Support/AddressBook/Sources/01234567-89AB-CDEF-0123-456789ABCDEF",
+      "sourceUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "type": 3,
+      "typeName": "cardDAV"
+    },
+    {
+      "identifier": "_local:ABAccount",
+      "isICloudCandidate": false,
+      "name": "On My Mac",
+      "sourceDirectoryExists": false,
+      "sourcePath": null,
+      "sourceUUID": null,
+      "type": 1,
+      "typeName": "local"
+    }
+  ]
+}
