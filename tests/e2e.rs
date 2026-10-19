@@ -6,6 +6,7 @@ const CHAT_SCHEMA_SQL: &str = include_str!("fixtures/e2e/chat/0.sql");
 const CHAT_DATA_SQL: &str = include_str!("fixtures/e2e/chat/1.sql");
 const ADDRESS_BOOK_SCHEMA_SQL: &str = include_str!("fixtures/e2e/addressbook/0.sql");
 const ADDRESS_BOOK_DATA_SQL: &str = include_str!("fixtures/e2e/addressbook/1.sql");
+const ICLOUD_SOURCE_UUID: &str = "01234567-89AB-CDEF-0123-456789ABCDEF";
 
 const ATTACHMENT_FIXTURES: [(&str, &str); 3] = [
     ("exploits_of_a_mom_2x.png", "exploits_of_a_mom_2x.png"),
@@ -58,7 +59,9 @@ fn build_fake_home(home_dir: &std::path::Path) {
     let address_book_dir = home_dir
         .join("Library")
         .join("Application Support")
-        .join("AddressBook");
+        .join("AddressBook")
+        .join("Sources")
+        .join(ICLOUD_SOURCE_UUID);
     fs::create_dir_all(&address_book_dir).expect("failed to create AddressBook directory");
 
     let address_book_db = Connection::open(address_book_dir.join("AddressBook-v22.abcddb"))
@@ -71,12 +74,52 @@ fn build_fake_home(home_dir: &std::path::Path) {
         .expect("failed to apply address book data fixture");
 }
 
+fn install_mock_address_book_discovery(home_dir: &std::path::Path) -> std::path::PathBuf {
+    let mock_bin_dir = home_dir.join("mock-bin");
+    fs::create_dir_all(&mock_bin_dir).expect("failed to create mock bin directory");
+    let script = mock_bin_dir.join("swift");
+    fs::write(&script, "#!/bin/sh\ncat \"$MOCK_SWIFT_OUTPUT\"\n")
+        .expect("failed to write mock Swift executable");
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755))
+        .expect("failed to make mock Swift executable");
+
+    let source_path = home_dir
+        .join("Library")
+        .join("Application Support")
+        .join("AddressBook")
+        .join("Sources")
+        .join(ICLOUD_SOURCE_UUID);
+    let discovery_json = home_dir.join("mock-contact-containers.json");
+    let contents = serde_json::json!({
+        "addressBookRoot": source_path.parent().unwrap().display().to_string(),
+        "containers": [{
+            "identifier": format!("{ICLOUD_SOURCE_UUID}:ABAccount"),
+            "isICloudCandidate": true,
+            "name": "iCloud",
+            "sourceDirectoryExists": true,
+            "sourcePath": source_path.display().to_string(),
+            "sourceUUID": ICLOUD_SOURCE_UUID,
+            "type": 3,
+            "typeName": "cardDAV"
+        }]
+    });
+    fs::write(&discovery_json, serde_json::to_vec(&contents).unwrap())
+        .expect("failed to write mock discovery output");
+    mock_bin_dir
+}
+
 #[test]
 fn e2e_collect_against_fake_home_produces_full_output() {
     let fake_home = TempDir::new().expect("failed to create fake home temporary directory");
     let output = TempDir::new().expect("failed to create output temporary directory");
 
     build_fake_home(fake_home.path());
+    let mock_bin_dir = install_mock_address_book_discovery(fake_home.path());
+    let path = std::env::join_paths(std::iter::once(mock_bin_dir).chain(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    )))
+    .expect("failed to construct test PATH");
 
     let result = std::process::Command::new("target/debug/apple-message-forensics")
         .arg("--home")
@@ -84,6 +127,11 @@ fn e2e_collect_against_fake_home_produces_full_output() {
         .arg("-o")
         .arg(output.path())
         .arg("collect")
+        .env("PATH", path)
+        .env(
+            "MOCK_SWIFT_OUTPUT",
+            fake_home.path().join("mock-contact-containers.json"),
+        )
         .output()
         .expect("failed to run collect against fake home");
 

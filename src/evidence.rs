@@ -477,7 +477,7 @@ struct ExportedEmail {
     ordering_index: Option<i64>,
 }
 
-pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
+pub fn create_cellebrite_output(output_dir: &Path, icloud_source_uuid: &str) -> Result<(), String> {
     if !output_dir.is_dir() {
         return Err(format!(
             "output directory does not exist: {}",
@@ -539,7 +539,31 @@ pub fn create_cellebrite_output(output_dir: &Path) -> Result<(), String> {
     )?;
 
     let lib_addr_dir = &library_dir.join("AddressBook");
-    let source_path = &lib_addr_dir.join("AddressBook-v22.abcddb");
+    let address_book_prefix = Path::new("Library/Application Support/AddressBook");
+    let mut address_book_paths = manifest_hashes.keys().filter_map(|relative_path| {
+        (relative_path
+            .file_name()
+            .is_some_and(|file_name| file_name == "AddressBook-v22.abcddb")
+            && relative_path.starts_with(address_book_prefix)
+            && relative_path
+                .components()
+                .any(|component| component.as_os_str() == icloud_source_uuid))
+        .then(|| relative_path.strip_prefix(address_book_prefix).ok())
+        .flatten()
+    });
+    let relative_address_book_path = address_book_paths.next().ok_or_else(|| {
+        format!(
+            "iCloud Address Book database for source UUID '{}' was not found in the working copy",
+            icloud_source_uuid
+        )
+    })?;
+    if address_book_paths.next().is_some() {
+        return Err(format!(
+            "multiple iCloud Address Book databases found for source UUID '{}'",
+            icloud_source_uuid
+        ));
+    }
+    let source_path = &lib_addr_dir.join(relative_address_book_path);
     let new_name = &lib_addr_dir.join("AddressBook.sqlitedb");
     let json_dir = output_dir.join("json");
     fs::create_dir_all(&json_dir).map_err(|err| {

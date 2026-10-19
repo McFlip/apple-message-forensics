@@ -319,7 +319,17 @@ fn main() {
             ));
         }
         Some(Commands::Cellebrite) => {
-            if let Err(err) = apple_message_forensics::create_cellebrite_output(&args.output) {
+            let result =
+                apple_message_forensics::source_discovery::discover_address_books(&args.output)
+                    .and_then(|containers_path| {
+                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                            &containers_path,
+                        )
+                    })
+                    .and_then(|uuid| {
+                        apple_message_forensics::create_cellebrite_output(&args.output, &uuid)
+                    });
+            if let Err(err) = result {
                 logger::error_fmt(format_args!("error: {err}"));
                 std::process::exit(1);
             }
@@ -404,6 +414,18 @@ fn main() {
             .expect("evidence files to be copied");
             logger::info("done.");
 
+            let icloud_address_book_uuid =
+                apple_message_forensics::source_discovery::discover_address_books(&args.output)
+                    .and_then(|containers_path| {
+                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                            &containers_path,
+                        )
+                    })
+                    .unwrap_or_else(|err| {
+                        logger::error_fmt(format_args!("error: {err}"));
+                        std::process::exit(1);
+                    });
+
             let vault_path = &args.output.join("evidence").join("vault").join("vault.zip");
             let vault_src = &args.output.join("evidence").join("working_copy");
             logger::info_fmt(format_args!(
@@ -445,9 +467,10 @@ fn main() {
             ));
 
             logger::info("Extracting contacts from AddressBook-v22.abcddb ...");
-            let addresses = apple_message_forensics::get_all_addresses(
+            let addresses = apple_message_forensics::get_icloud_addresses(
                 &file_hash_manifest,
                 &args.output.join("evidence").join("working_copy"),
+                &icloud_address_book_uuid,
             )
             .expect("to get addresses");
             let addresses_path = json_dir.join("addresses.json");

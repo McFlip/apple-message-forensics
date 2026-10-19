@@ -28,15 +28,29 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     let working_copy = output_dir.path().join("evidence/working_copy");
     fs::create_dir_all(&working_copy).expect("create working copy");
 
-    let address_book_path =
-        working_copy.join("Library/Application Support/AddressBook/AddressBook-v22.abcddb");
+    let icloud_source_uuid = "01234567-89AB-CDEF-0123-456789ABCDEF";
+    let address_book_path = working_copy
+        .join("Library/Application Support/AddressBook/Sources")
+        .join(icloud_source_uuid)
+        .join("AddressBook-v22.abcddb");
+    let other_address_book_path = working_copy.join(
+        "Library/Application Support/AddressBook/Sources/FEDCBA98-7654-3210-FEDC-BA9876543210/AddressBook-v22.abcddb",
+    );
     fs::create_dir_all(address_book_path.parent().expect("database has a parent"))
         .expect("create AddressBook directory");
+    fs::create_dir_all(
+        other_address_book_path
+            .parent()
+            .expect("other database has a parent"),
+    )
+    .expect("create other AddressBook directory");
     fs::copy(
         "tests/fixtures/fakehome/Library/Application Support/AddressBook/AddressBook-v22.abcddb",
         &address_book_path,
     )
     .expect("copy fixture DB");
+    fs::write(&other_address_book_path, b"not a SQLite database")
+        .expect("write non-iCloud AddressBook database");
     let address_book = fs::read(&address_book_path).expect("read mock AddressBook database");
 
     let evidence = [
@@ -63,7 +77,14 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     manifest_entries.push(format!(
         "{}  {}",
         sha256(&address_book),
-        "Library/Application Support/AddressBook/AddressBook-v22.abcddb"
+        format!(
+            "Library/Application Support/AddressBook/Sources/{icloud_source_uuid}/AddressBook-v22.abcddb"
+        )
+    ));
+    manifest_entries.push(format!(
+        "{}  {}",
+        sha256(b"not a SQLite database"),
+        "Library/Application Support/AddressBook/Sources/FEDCBA98-7654-3210-FEDC-BA9876543210/AddressBook-v22.abcddb"
     ));
     fs::write(
         working_copy.join("hash_manifest.txt"),
@@ -71,7 +92,8 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     )
     .expect("write hash manifest");
 
-    create_cellebrite_output(output_dir.path()).expect("create Cellebrite filesystem");
+    create_cellebrite_output(output_dir.path(), icloud_source_uuid)
+        .expect("create Cellebrite filesystem");
 
     let intermediate_json = output_dir.path().join("json/cellebrite_addresses.json");
     let exported_contacts: serde_json::Value =
@@ -93,8 +115,16 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
         .join("cellebrite/private/var/mobile/Library");
     assert!(
         !cellebrite_root
-            .join("AddressBook/AddressBook-v22.abcddb")
+            .join("AddressBook/Sources")
+            .join(icloud_source_uuid)
+            .join("AddressBook-v22.abcddb")
             .exists()
+    );
+    assert!(
+        cellebrite_root
+            .join("AddressBook/Sources/FEDCBA98-7654-3210-FEDC-BA9876543210/AddressBook-v22.abcddb")
+            .is_file(),
+        "non-iCloud Address Book files should remain copied into the Cellebrite tree"
     );
     let output_address_book_path = cellebrite_root.join("AddressBook/AddressBook.sqlitedb");
     assert!(output_address_book_path.is_file());
@@ -215,7 +245,8 @@ fn rejects_an_output_directory_that_does_not_exist() {
     let temp_dir = tempdir().expect("create temporary directory");
     let missing_output = temp_dir.path().join("missing");
 
-    let error = create_cellebrite_output(&missing_output).expect_err("output must exist");
+    let error = create_cellebrite_output(&missing_output, "01234567-89AB-CDEF-0123-456789ABCDEF")
+        .expect_err("output must exist");
 
     assert!(error.contains("output directory does not exist"));
 }
@@ -232,8 +263,8 @@ fn rejects_a_copied_file_missing_from_the_manifest() {
         .expect("create AddressBook directory");
     fs::write(working_copy.join("hash_manifest.txt"), "").expect("write empty manifest");
 
-    let error =
-        create_cellebrite_output(output_dir.path()).expect_err("file must be listed in manifest");
+    let error = create_cellebrite_output(output_dir.path(), "01234567-89AB-CDEF-0123-456789ABCDEF")
+        .expect_err("file must be listed in manifest");
 
     assert!(error.contains("is missing from hash manifest"));
 }
@@ -253,7 +284,8 @@ fn rejects_a_copied_file_with_a_hash_mismatch() {
     )
     .expect("write incorrect hash manifest");
 
-    let error = create_cellebrite_output(output_dir.path()).expect_err("hash must match manifest");
+    let error = create_cellebrite_output(output_dir.path(), "01234567-89AB-CDEF-0123-456789ABCDEF")
+        .expect_err("hash must match manifest");
 
     assert!(error.contains("SHA-256 mismatch"));
 }

@@ -71,6 +71,10 @@ find_iCloud: check clean
 cellebrite: build
   cargo run -- --home tests/fixtures/fakehome cellebrite
 
+# Real version of Cellebrite
+cellebrite-real: build-real
+  cargo run -- cellebrite
+
 # Release build
 release: check
   rm -rf release

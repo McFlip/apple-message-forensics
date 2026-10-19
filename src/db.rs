@@ -150,6 +150,22 @@ pub fn get_all_addresses(
     manifest_path: &std::path::Path,
     working_dir: &std::path::Path,
 ) -> Result<String, String> {
+    get_addresses_for_source(manifest_path, working_dir, None)
+}
+
+pub fn get_icloud_addresses(
+    manifest_path: &std::path::Path,
+    working_dir: &std::path::Path,
+    icloud_source_uuid: &str,
+) -> Result<String, String> {
+    get_addresses_for_source(manifest_path, working_dir, Some(icloud_source_uuid))
+}
+
+fn get_addresses_for_source(
+    manifest_path: &std::path::Path,
+    working_dir: &std::path::Path,
+    source_uuid: Option<&str>,
+) -> Result<String, String> {
     use crate::evidence::parse_hash_manifest_line;
     use std::fs;
 
@@ -161,6 +177,7 @@ pub fn get_all_addresses(
         )
     })?;
     let mut all_addresses = Vec::new();
+    let mut found_icloud_address_book = false;
 
     for (line_number, line) in manifest_contents.lines().enumerate() {
         if line.trim().is_empty() {
@@ -173,6 +190,21 @@ pub fn get_all_addresses(
             .is_none_or(|file_name| file_name != "AddressBook-v22.abcddb")
         {
             continue;
+        }
+
+        if let Some(uuid) = source_uuid {
+            if !relative_path
+                .components()
+                .any(|component| component.as_os_str() == uuid)
+            {
+                continue;
+            }
+            if found_icloud_address_book {
+                return Err(format!(
+                    "multiple iCloud Address Book databases found for source UUID '{uuid}'"
+                ));
+            }
+            found_icloud_address_book = true;
         }
 
         let address_book_path = working_dir.join(&relative_path);
@@ -192,6 +224,14 @@ pub fn get_all_addresses(
                 )
             })?;
         all_addresses.append(&mut addresses);
+    }
+
+    if let Some(uuid) = source_uuid {
+        if !found_icloud_address_book {
+            return Err(format!(
+                "iCloud Address Book database for source UUID '{uuid}' was not found in the working copy"
+            ));
+        }
     }
 
     serde_json::to_string(&all_addresses)

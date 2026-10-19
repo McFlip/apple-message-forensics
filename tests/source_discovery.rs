@@ -1,7 +1,9 @@
+use apple_message_forensics::get_icloud_addresses;
 use apple_message_forensics::source_discovery::find_icloud_address_book_uuid;
 use rusqlite::Connection;
 use serde_json::Value;
-use std::path::Path;
+use sha2::{Digest, Sha256};
+use std::{fs, path::Path};
 use tempfile::TempDir;
 
 const CONTAINERS_FIXTURE: &str = include_str!("fixtures/contact-containers.json");
@@ -83,4 +85,45 @@ fn reports_when_icloud_database_is_missing() {
 
     let error = find_icloud_address_book_uuid(&json_path).unwrap_err();
     assert!(error.contains("iCloud Address Book database does not exist"));
+}
+
+#[test]
+fn parses_only_the_address_book_matching_the_icloud_uuid() {
+    let temp_dir = TempDir::new().unwrap();
+    let working_copy = temp_dir.path().join("working_copy");
+    let uuid = "01234567-89AB-CDEF-0123-456789ABCDEF";
+    let other_uuid = "FEDCBA98-7654-3210-FEDC-BA9876543210";
+    let fixture_db = Path::new(
+        "tests/fixtures/fakehome/Library/Application Support/AddressBook/AddressBook-v22.abcddb",
+    );
+    let selected_path = working_copy
+        .join("Library/Application Support/AddressBook/Sources")
+        .join(uuid)
+        .join("AddressBook-v22.abcddb");
+    let other_path = working_copy
+        .join("Library/Application Support/AddressBook/Sources")
+        .join(other_uuid)
+        .join("AddressBook-v22.abcddb");
+    fs::create_dir_all(selected_path.parent().unwrap()).unwrap();
+    fs::create_dir_all(other_path.parent().unwrap()).unwrap();
+    fs::copy(fixture_db, &selected_path).unwrap();
+    fs::write(&other_path, b"not a SQLite database").unwrap();
+
+    let manifest_path = working_copy.join("hash_manifest.txt");
+    let mut entries = Vec::new();
+    for path in [&selected_path, &other_path] {
+        let contents = fs::read(path).unwrap();
+        let relative_path = path.strip_prefix(&working_copy).unwrap();
+        entries.push(format!(
+            "{}  {}",
+            hex::encode(Sha256::digest(contents)),
+            relative_path.display()
+        ));
+    }
+    fs::write(&manifest_path, entries.join("\n")).unwrap();
+
+    let addresses_json = get_icloud_addresses(&manifest_path, &working_copy, uuid).unwrap();
+    let addresses: Value = serde_json::from_str(&addresses_json).unwrap();
+
+    assert!(!addresses.as_array().unwrap().is_empty());
 }
