@@ -70,10 +70,11 @@ impl ReaderApp {
 }
 
 impl eframe::App for ReaderApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         if ctx.input(|input| input.viewport().close_requested()) && !self.close_when_stopped {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            self.begin_shutdown(ctx);
+            self.begin_shutdown(&ctx);
         }
 
         loop {
@@ -103,23 +104,21 @@ impl eframe::App for ReaderApp {
             }
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(24.0);
-                ui.label(&self.status);
-                if let Some(detail) = &self.detail {
-                    ui.label(detail);
+        ui.vertical_centered(|ui| {
+            ui.add_space(24.0);
+            ui.label(&self.status);
+            if let Some(detail) = &self.detail {
+                ui.label(detail);
+            }
+            if !self.shutting_down {
+                ui.add_space(16.0);
+                let exit =
+                    egui::Button::new(egui::RichText::new("Exit").color(egui::Color32::WHITE))
+                        .fill(egui::Color32::RED);
+                if ui.add(exit).clicked() {
+                    self.begin_shutdown(&ctx);
                 }
-                if !self.shutting_down {
-                    ui.add_space(16.0);
-                    let exit =
-                        egui::Button::new(egui::RichText::new("Exit").color(egui::Color32::WHITE))
-                            .fill(egui::Color32::RED);
-                    if ui.add(exit).clicked() {
-                        self.begin_shutdown(ctx);
-                    }
-                }
-            });
+            }
         });
 
         ctx.request_repaint_after(Duration::from_millis(100));
