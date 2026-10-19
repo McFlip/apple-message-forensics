@@ -18,13 +18,13 @@ build-real: check clean
 
 # Build the report reader and its server
 build-reader:
-  cargo build --release --package report-reader --bins
-  cp target/release/reader target/release/report-server bin/
+  cargo build --release --package report-reader --bins --target x86_64-pc-windows-gnu
+  cp target/x86_64-pc-windows-gnu/release/reader.exe target/x86_64-pc-windows-gnu/release/report-server.exe bin/
 
 # Bundle the report reader and its server with the report
 bundle-reader: build-reader
   test -f output/report/index.html
-  cp bin/reader bin/report-server output/report/
+  cp bin/reader.exe bin/report-server.exe output/report/
 
 # Full run
 full: build
@@ -81,6 +81,8 @@ release: check
   mkdir -p release/bin
   cargo build --release --bins
   cp target/release/reader target/release/report-server release/bin/
+  cargo build --release --package report-reader --bins --target x86_64-pc-windows-gnu
+  cp target/x86_64-pc-windows-gnu/release/reader.exe target/x86_64-pc-windows-gnu/release/report-server.exe release/bin/
   cp target/release/apple-message-forensics release/
   cp just/JUSTFILE release/
   cp README.md release/

@@ -489,81 +489,12 @@ Here's how to use a hashfile on macOS or Linux:
 sha256sum -c hashes.txt
 ```
 
-And here is how to do it in PowerShell7 on Windows or any other platform running PowerShell7:
-
-First, create a PowerShell script named `validate_hashes.ps1`.
-
-```powershell
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory)]
-    [string]$Manifest
-)
-
-$ErrorActionPreference = 'Stop'
-
-$manifestPath = (Resolve-Path -LiteralPath $Manifest).Path
-$baseDir = Split-Path -Parent $manifestPath
-
-$failed = 0
-$checked = 0
-
-foreach ($line in Get-Content -LiteralPath $manifestPath) {
-    # Skip blank lines
-    if ([string]::IsNullOrWhiteSpace($line)) {
-        continue
-    }
-
-    # sha256sum format:
-    # <64-character SHA256>  <relative path>
-    # Also accepts the binary-mode form with a leading '*'.
-    if ($line -notmatch '^([0-9a-fA-F]{64})\s+[* ](.+)$') {
-        Write-Warning "Invalid manifest line: $line"
-        $failed++
-        continue
-    }
-
-    $expectedHash = $Matches[1].ToUpperInvariant()
-    $relativePath = $Matches[2]
-
-    $filePath = Join-Path -Path $baseDir -ChildPath $relativePath
-
-    if (-not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
-        Write-Host "FAILED  $relativePath (file not found)"
-        $failed++
-        continue
-    }
-
-    $actualHash = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash
-
-    $checked++
-
-    if ($actualHash -eq $expectedHash) {
-        Write-Host "OK      $relativePath"
-    }
-    else {
-        Write-Host "FAILED  $relativePath"
-        Write-Host "        Expected: $expectedHash"
-        Write-Host "        Actual:   $actualHash"
-        $failed++
-    }
-}
-
-Write-Host ""
-Write-Host "Checked: $checked"
-Write-Host "Failed:  $failed"
-
-if ($failed -gt 0) {
-    exit 1
-}
-
-exit 0
-```
+On Windows, use the provided PowerShell script in `scripts/validate_hashes.ps1`
 
 Run the script and pass the directory of the manifest file
 
 ```powershell
-.\Validate-Manifest.ps1 .\SHA256SUMS
+.\validate_hashes.ps1 .\SHA256SUMS
 ```
 
 ## Issues
@@ -575,3 +506,44 @@ Let me know what OS version you are running and version of this tool.
 If you can reproduce the issue with test data please provide that.
 
 >[!Warning] Do not send me sensitive case data or anything classified. This is not a War Thunder forum!
+
+## Building from Source
+
+Install `Homebrew`
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/bin/install.sh)"
+```
+
+Install `Just`
+
+```bash
+brew install just
+```
+
+Run the tests
+
+```bash
+just check
+```
+
+To cross-compile the Windows binaries for the reader, we'll need to do additional work.
+
+Install `mingw`
+
+```bash
+brew install mingw-w64
+```
+
+Add the compilation target
+
+```bash
+rustup target add x86_64-pc-windows-gnu
+```
+
+Build
+
+```bash
+just build-reader
+```
+

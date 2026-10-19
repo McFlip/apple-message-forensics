@@ -2,6 +2,7 @@
 do-it:
   ./apple-message-forensics --meta metadata.yaml
   ./apple-message-forensics --meta metadata.yaml cellebrite
-  cp bin/* output/report
+  ./apple-message-forensics --meta metadata.yaml deliver
+  cp bin/reader bin/report-server output/report
   cd output/report
   ./reader
