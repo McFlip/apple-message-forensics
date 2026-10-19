@@ -5,4 +5,4 @@ do-it:
   ./apple-message-forensics --meta metadata.yaml deliver
   cp bin/reader bin/report-server output/report
   cd output/report
-  ./reader
+  ./bin/reader

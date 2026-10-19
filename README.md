@@ -87,6 +87,14 @@ You must explicitly grant access to the application running the tool.
 
 ## Install
 
+Install Homebrew, just, and 7zip
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/bin/install.sh)"
+brew install just
+brew install sevenzip
+```
+
 Go to the [releases page](https://github.com/McFlip/apple-message-forensics/releases) and download the correct binary depending on if you are running Apple silicon or Intel.
 
 If you don't know what you are running under the hood use the following command
@@ -97,7 +105,7 @@ sysctl -n machdep.cpu.brand_string | grep -qi 'Apple' && echo "Apple silicon" ||
 
 On macOS, once you have the binary:
 
-1. Download and extract the macOS binary `apple-message-forensics`
+1. Download and extract the macOS binary `apple-message-forensics` using 7z `7zz x release.7z`
 2. Open Terminal in the directory containing the binary
 3. Make it executable (if necessary):
 
@@ -160,6 +168,14 @@ You can filter by
 
 * Date Range
 * Contact
+
+### EZ Mode
+
+This runs the typical workflow of preserving evidence and exporting to Cellebrite
+
+```bash
+just do-it
+```
 
 ### Collect Everything and Generate Report
 

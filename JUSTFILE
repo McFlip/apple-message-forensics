@@ -1,3 +1,7 @@
+crate_version := shell("cargo info apple-message-forensics | grep 'version: [0-9]' | cut -d ' ' -f 2")
+ver_name := "apple-message-forensics_v" + crate_version
+zip_name := ver_name + ".7z"
+
 # Build lint and test
 check:
   cargo check
@@ -80,16 +84,20 @@ release: check
   rm -rf release
   mkdir -p release/bin
   cargo build --release --bins
+  cp target/release/apple-message-forensics release/
+  cargo build --release --package report-reader --bins
   cp target/release/reader target/release/report-server release/bin/
   cargo build --release --package report-reader --bins --target x86_64-pc-windows-gnu
   cp target/x86_64-pc-windows-gnu/release/reader.exe target/x86_64-pc-windows-gnu/release/report-server.exe release/bin/
-  cp target/release/apple-message-forensics release/
   cp just/JUSTFILE release/
-  cp README.md release/
-  cp LICENSE release/
+  cp README.md LICENSE CHANGELOG.md release/
   cp screenshot{1,2}.png release/
   cp tests/fixtures/mock_contact_id release/contact_id.txt
   cp tests/fixtures/mock_metadata.yaml release/metadata.yaml
   mkdir release/scripts
   cp -r scripts/ release/scripts/
+  mv release {{ver_name}}
+  7zz a {{zip_name}} {{ver_name}}
+  mv {{ver_name}} release
+  mv {{zip_name}} release/
 

@@ -84,3 +84,7 @@
   - [x] Added `just` commands for E2E on a real system.
   - [x] Automated E2E for collect command using SQL test fixtures and temp file system
 
+## Release
+- [ ] Test on real targets
+- [ ] Test on other examiner's machines
+- [ ] Add macOS Intel build
