@@ -617,11 +617,21 @@ pub fn create_cellebrite_output(output_dir: &Path, icloud_source_uuid: &str) -> 
         }
     }
 
+    let archive_path = cellebrite_dir.join("fake_iPhone.zip");
     archive_evidence_with_prefix(
         &cellebrite_dir.join("private"),
-        &cellebrite_dir.join("fake_iPhone.zip"),
+        &archive_path,
         Path::new("private"),
     )?;
+    let archive_hash = calculate_sha256(&archive_path)?;
+    let hash_path = cellebrite_dir.join("fake_iPhone.zip.sha256");
+    fs::write(&hash_path, format!("{archive_hash}  fake_iPhone.zip\n")).map_err(|err| {
+        format!(
+            "cannot write archive hash file '{}': {}",
+            hash_path.display(),
+            err
+        )
+    })?;
 
     Ok(())
 }

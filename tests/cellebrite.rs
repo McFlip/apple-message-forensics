@@ -217,6 +217,12 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     assert!(!sms_dir.join("chat.db-shm").exists());
 
     let archive_path = output_dir.path().join("cellebrite/fake_iPhone.zip");
+    let archive_contents = fs::read(&archive_path).expect("read Cellebrite ZIP archive");
+    let hash_path = output_dir.path().join("cellebrite/fake_iPhone.zip.sha256");
+    assert_eq!(
+        fs::read_to_string(hash_path).expect("read Cellebrite ZIP hash"),
+        format!("{}  fake_iPhone.zip\n", sha256(&archive_contents))
+    );
     let archive_file = fs::File::open(archive_path).expect("open Cellebrite ZIP archive");
     let mut archive = ZipArchive::new(archive_file).expect("read Cellebrite ZIP archive");
     let address_book_entry = "private/var/mobile/Library/AddressBook/AddressBook.sqlitedb";
