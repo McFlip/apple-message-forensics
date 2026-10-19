@@ -238,7 +238,7 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
     assert!(
         archive
             .file_names()
-            .all(|name| name.starts_with("private/")),
+            .all(|name| name.expect("read ZIP archive entry name").starts_with("private/")),
         "archive entries should be rooted at private/"
     );
 }
