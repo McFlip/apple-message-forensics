@@ -75,11 +75,8 @@ fn creates_cellebrite_layout_verifies_files_and_renames_sms_database() {
         );
     }
     manifest_entries.push(format!(
-        "{}  {}",
-        sha256(&address_book),
-        format!(
-            "Library/Application Support/AddressBook/Sources/{icloud_source_uuid}/AddressBook-v22.abcddb"
-        )
+        "{}  Library/Application Support/AddressBook/Sources/{icloud_source_uuid}/AddressBook-v22.abcddb",
+        sha256(&address_book)
     ));
     manifest_entries.push(format!(
         "{}  {}",

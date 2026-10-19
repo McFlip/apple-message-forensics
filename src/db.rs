@@ -226,12 +226,12 @@ fn get_addresses_for_source(
         all_addresses.append(&mut addresses);
     }
 
-    if let Some(uuid) = source_uuid {
-        if !found_icloud_address_book {
-            return Err(format!(
-                "iCloud Address Book database for source UUID '{uuid}' was not found in the working copy"
-            ));
-        }
+    if let Some(uuid) = source_uuid
+        && !found_icloud_address_book
+    {
+        return Err(format!(
+            "iCloud Address Book database for source UUID '{uuid}' was not found in the working copy"
+        ));
     }
 
     serde_json::to_string(&all_addresses)
