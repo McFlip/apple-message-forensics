@@ -649,6 +649,7 @@ pub fn create_cellebrite_output(output_dir: &Path, icloud_source_uuid: &str) -> 
         &cellebrite_dir.join("private"),
         &archive_path,
         Path::new("private"),
+        None,
     )?;
     let archive_hash = calculate_sha256(&archive_path)?;
     let hash_path = cellebrite_dir.join("fake_iPhone.zip.sha256");
@@ -1395,13 +1396,22 @@ fn set_read_only(path: &Path) -> Result<(), std::io::Error> {
 }
 
 pub fn archive_evidence(source_dir: &Path, archive_path: &Path) -> Result<(), String> {
-    archive_evidence_with_prefix(source_dir, archive_path, Path::new(""))
+    archive_evidence_with_password(source_dir, archive_path, None)
+}
+
+pub fn archive_evidence_with_password(
+    source_dir: &Path,
+    archive_path: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
+    archive_evidence_with_prefix(source_dir, archive_path, Path::new(""), password)
 }
 
 fn archive_evidence_with_prefix(
     source_dir: &Path,
     archive_path: &Path,
     entry_prefix: &Path,
+    password: Option<&str>,
 ) -> Result<(), String> {
     let archive_parent = archive_path
         .parent()
@@ -1472,8 +1482,11 @@ fn archive_evidence_with_prefix(
         )
     })?;
     let mut archive = zip::ZipWriter::new(archive_file);
-    let options = zip::write::SimpleFileOptions::default()
+    let mut options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
+    if let Some(password) = password {
+        options = options.with_aes_encryption(zip::AesMode::Aes256, password);
+    }
 
     for (relative_path, source_path) in entries {
         let archive_name = entry_prefix

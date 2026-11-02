@@ -6,11 +6,6 @@
   - [ ] Discuss with `Nuix` support
   - [ ] AI research
 
-## 🛠️ Collection & Preservation
-- [ ] Delivery Module: Implement the `deliver` subcommand to create a final ZIP archive of the case with optional password protection and a manifest of hashes.
-  - [x] ZIP creation
-  - [ ] Password protection
-
 ### Report Content
 - [ ] Message attachments
   - [x] Copy attachments folder from working copy to report folder
@@ -29,4 +24,5 @@
 - [x] Test on real targets
 - [ ] Test on other examiner's machines
 - [x] `fakehome` test fixture broken due to using a real UUID collected by the Swift script query to Contacts
+- [x] Password-protect deliverable ZIP via `--protect-deliverable` (DEL_PW env or prompt)
 - [ ] Add macOS Intel build

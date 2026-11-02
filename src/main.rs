@@ -38,6 +38,10 @@ struct Args {
     #[arg(long, value_name = "DIR", global = true)]
     home: Option<PathBuf>,
 
+    /// Password-protect the deliverable ZIP. Password comes from DEL_PW env var or an interactive prompt.
+    #[arg(long, global = true)]
+    protect_deliverable: bool,
+
     /// Path to a mock contact-containers JSON file (skips the Swift discovery script). Useful for testing with fakehome.
     #[arg(long, value_name = "FILE", global = true)]
     containers_json: Option<PathBuf>,
@@ -363,6 +367,21 @@ fn main() {
                 ));
             }
 
+            let deliverable_password = if args.protect_deliverable {
+                match std::env::var("DEL_PW") {
+                    Ok(value) if !value.is_empty() => value,
+                    _ => rpassword::prompt_password("Deliverable ZIP password: ")
+                        .expect("read password"),
+                }
+            } else {
+                String::new()
+            };
+            let deliverable_password = if args.protect_deliverable {
+                Some(deliverable_password.as_str())
+            } else {
+                None
+            };
+
             let deliverable_zip = delivery_dir.join("deliverable.zip");
             let deliverable_manifest = delivery_dir.join("deliverable.zip.sha256");
             for stale_path in [&deliverable_zip, &deliverable_manifest] {
@@ -378,9 +397,11 @@ fn main() {
                 }
             }
 
-            if let Err(e) =
-                apple_message_forensics::archive_evidence(&delivery_dir, &deliverable_zip)
-            {
+            if let Err(e) = apple_message_forensics::archive_evidence_with_password(
+                &delivery_dir,
+                &deliverable_zip,
+                deliverable_password,
+            ) {
                 logger::error_fmt(format_args!("cannot create delivery archive: {}", e));
                 std::process::exit(1);
             }
