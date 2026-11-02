@@ -371,6 +371,8 @@ Run `output/report/reader` to start the local report server and open the report 
 
 The `deliver` command places `report.zip`, `vault.zip`, and `validate_hashes.ps1` in the `delivery` folder. When both `output/cellebrite/fake_iPhone.zip` and its `.sha256` manifest exist, they are copied into `delivery` and the copied ZIP is verified against the manifest. The folder contents are packaged as `delivery/deliverable.zip`, with its SHA-256 manifest at `delivery/deliverable.zip.sha256`.
 
+To password-protect `deliverable.zip`, run `deliver --protect-deliverable`. The password is read from the `DEL_PW` environment variable when set; otherwise you are prompted to enter it. The password cannot be passed on the command line.
+
 ```bash
 apple-message-forensics deliver
 ```
