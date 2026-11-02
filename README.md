@@ -1,7 +1,7 @@
 # apple-message-forensics
 
 [![Documentation](https://img.shields.io/badge/docs-Diátaxis-blue.svg)](docs/index.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **Apple Messages Forensics** is an open-source DFIR and eDiscovery tool for collecting and preserving Apple Messages data from macOS, extracting messages and attachments to structured JSON, and generating human-readable HTML reports for counsel and investigators.
 
