@@ -1,6 +1,8 @@
 crate_version := shell("cargo info apple-message-forensics | grep 'version: [0-9]' | cut -d ' ' -f 2")
 ver_name := "apple-message-forensics_v" + crate_version
 zip_name := ver_name + ".7z"
+intel_ver_name := ver_name + "-macos-intel"
+intel_zip_name := intel_ver_name + ".7z"
 
 # Build lint and test
 check:
@@ -90,7 +92,6 @@ release: check
   cargo build --release --bins
   cp target/release/apple-message-forensics release/
   cargo build --release --bins --target x86_64-apple-darwin
-  cp target/x86_64-apple-darwin/release/apple-message-forensics release/apple-message-forensics-macos-intel
   cargo build --release --package report-reader --bins
   cp target/release/reader target/release/report-server release/bin/
   cargo build --release --package report-reader --bins --target x86_64-pc-windows-gnu
@@ -104,6 +105,10 @@ release: check
   cp -r scripts/ release/scripts/
   mv release {{ver_name}}
   7zz a {{zip_name}} {{ver_name}}
-  mv {{ver_name}} release
+  cp target/x86_64-apple-darwin/release/apple-message-forensics {{ver_name}}/
+  7zz a {{intel_zip_name}} {{ver_name}}
+  rm -rf {{ver_name}}
+  mkdir release
   mv {{zip_name}} release/
+  mv {{intel_zip_name}} release/
 

@@ -57,6 +57,10 @@ The HTML report includes dynamic views and thread navigation that require an HTT
 
    - **macOS / Linux**: `./reader`
    - **Windows**: `reader.exe`
+   - **Windows alternative**: `serve.ps1`
+
+> [!NOTE]
+> The PowerShell script is provided in case your IT security policy blocks the executable
 
 2. The reader automatically spawns the local Axum web server and opens the report in the system default web browser.
 
