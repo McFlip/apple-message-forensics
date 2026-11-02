@@ -1,0 +1,14 @@
+{
+  "containers": [
+    {
+      "isICloudCandidate": true,
+      "sourceUUID": "01234567-89AB-CDEF-0123-456789ABCDEF",
+      "sourcePath": "tests/fixtures/fakehome/Library/Application Support/AddressBook"
+    },
+    {
+      "isICloudCandidate": false,
+      "sourceUUID": null,
+      "sourcePath": null
+    }
+  ]
+}

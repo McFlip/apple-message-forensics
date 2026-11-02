@@ -13,9 +13,8 @@ clean:
   rm -rf output
 
 # run but don't launch server
-# FIX: using the fakehome fixture no longer works due to getting a real UUID for the contacts container
 build: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --home tests/fixtures/fakehome
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --home tests/fixtures/fakehome --containers-json tests/fixtures/fake-containers.json
 
 # build but with real data
 build-real: check clean
@@ -51,17 +50,17 @@ serve:
 
 # E2E test filtering on contact id
 filter_contact: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome --containers-json tests/fixtures/fake-containers.json
   just serve
 
 # E2E test filtering on start date
 filter_start: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-31T14:00:00Z --home tests/fixtures/fakehome
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-31T14:00:00Z --home tests/fixtures/fakehome --containers-json tests/fixtures/fake-containers.json
   just serve
 
 # E2E test filtering on both start date and contact id
 filter_both: check clean
-  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-02T03:00:00Z --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome
+  cargo run -- --meta tests/fixtures/mock_metadata.yaml --start 2024-06-02T03:00:00Z --contact-ids-file tests/fixtures/mock_contact_id --home tests/fixtures/fakehome --containers-json tests/fixtures/fake-containers.json
   just serve
 
 # Deliver
@@ -78,7 +77,7 @@ find_iCloud: check clean
 
 # Deliver Cellebrite ZIP
 cellebrite: build
-  cargo run -- --home tests/fixtures/fakehome cellebrite
+  cargo run -- --home tests/fixtures/fakehome --containers-json tests/fixtures/fake-containers.json cellebrite
 
 # Real version of Cellebrite
 cellebrite-real: build-real

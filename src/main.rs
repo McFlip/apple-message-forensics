@@ -38,6 +38,10 @@ struct Args {
     #[arg(long, value_name = "DIR", global = true)]
     home: Option<PathBuf>,
 
+    /// Path to a mock contact-containers JSON file (skips the Swift discovery script). Useful for testing with fakehome.
+    #[arg(long, value_name = "FILE", global = true)]
+    containers_json: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -394,16 +398,23 @@ fn main() {
             ));
         }
         Some(Commands::Cellebrite) => {
-            let result =
-                apple_message_forensics::source_discovery::discover_address_books(&args.output)
-                    .and_then(|containers_path| {
-                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
-                            &containers_path,
-                        )
-                    })
-                    .and_then(|uuid| {
-                        apple_message_forensics::create_cellebrite_output(&args.output, &uuid)
-                    });
+            let containers_path = if let Some(path) = &args.containers_json {
+                path.clone()
+            } else {
+                match apple_message_forensics::source_discovery::discover_address_books(&args.output) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        logger::error_fmt(format_args!("error: {e}"));
+                        std::process::exit(1);
+                    }
+                }
+            };
+            let result = apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                &containers_path,
+            )
+            .and_then(|uuid| {
+                apple_message_forensics::create_cellebrite_output(&args.output, &uuid)
+            });
             if let Err(err) = result {
                 logger::error_fmt(format_args!("error: {err}"));
                 std::process::exit(1);
@@ -414,13 +425,20 @@ fn main() {
             ));
         }
         Some(Commands::FindIcloudContacts) => {
-            let result =
-                apple_message_forensics::source_discovery::discover_address_books(&args.output)
-                    .and_then(|containers_path| {
-                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
-                            &containers_path,
-                        )
-                    });
+            let containers_path = if let Some(path) = &args.containers_json {
+                path.clone()
+            } else {
+                match apple_message_forensics::source_discovery::discover_address_books(&args.output) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        logger::error_fmt(format_args!("error: {e}"));
+                        std::process::exit(1);
+                    }
+                }
+            };
+            let result = apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                &containers_path,
+            );
 
             match result {
                 Ok(uuid) => println!("Found iCloud Address Book source with UUID: {uuid}"),
@@ -489,17 +507,25 @@ fn main() {
             .expect("evidence files to be copied");
             logger::info("done.");
 
-            let icloud_address_book_uuid =
-                apple_message_forensics::source_discovery::discover_address_books(&args.output)
-                    .and_then(|containers_path| {
-                        apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
-                            &containers_path,
-                        )
-                    })
-                    .unwrap_or_else(|err| {
-                        logger::error_fmt(format_args!("error: {err}"));
+            let containers_path = if let Some(path) = &args.containers_json {
+                path.clone()
+            } else {
+                match apple_message_forensics::source_discovery::discover_address_books(&args.output) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        logger::error_fmt(format_args!("error: {e}"));
                         std::process::exit(1);
-                    });
+                    }
+                }
+            };
+            let icloud_address_book_uuid =
+                apple_message_forensics::source_discovery::find_icloud_address_book_uuid(
+                    &containers_path,
+                )
+                .unwrap_or_else(|err| {
+                    logger::error_fmt(format_args!("error: {err}"));
+                    std::process::exit(1);
+                });
 
             let vault_path = &args.output.join("evidence").join("vault").join("vault.zip");
             let vault_src = &args.output.join("evidence").join("working_copy");
