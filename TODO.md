@@ -25,4 +25,4 @@
 - [ ] Test on other examiner's machines
 - [x] `fakehome` test fixture broken due to using a real UUID collected by the Swift script query to Contacts
 - [x] Password-protect deliverable ZIP via `--protect-deliverable` (DEL_PW env or prompt)
-- [ ] Add macOS Intel build
+- [x] Add macOS Intel build

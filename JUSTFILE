@@ -89,6 +89,8 @@ release: check
   mkdir -p release/bin
   cargo build --release --bins
   cp target/release/apple-message-forensics release/
+  cargo build --release --bins --target x86_64-apple-darwin
+  cp target/x86_64-apple-darwin/release/apple-message-forensics release/apple-message-forensics-macos-intel
   cargo build --release --package report-reader --bins
   cp target/release/reader target/release/report-server release/bin/
   cargo build --release --package report-reader --bins --target x86_64-pc-windows-gnu
